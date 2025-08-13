@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PilotoPOS – Login</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100">
+  <nav class="bg-cyan-600 text-white p-4 flex gap-4 justify-center">
+    <a href="/" class="hover:underline">Ventas</a>
+    <a href="/almacen" class="hover:underline">Almacén</a>
+    <a href="/historial" class="hover:underline">Historial</a>
+    <a href="/usuarios" class="hover:underline">Usuarios</a>
+    <a href="/login" class="hover:underline">Login</a>
+  </nav>
+
+  <div class="max-w-sm mx-auto p-6 mt-20 bg-white rounded shadow">
+    <h1 class="text-2xl font-bold text-cyan-600 mb-6 text-center">🔒 Iniciar sesión</h1>
+    <p class="text-center text-gray-600 mb-4">Ingresa tus credenciales para acceder al sistema.</p>
+
+    {% if error %}
+      <div class="mb-4 rounded-lg bg-red-50 text-red-700 px-4 py-3 text-sm">
+        {{ error }}
+      </div>
+    {% endif %}
+
+    <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
+      <div>
+        <label class="block text-sm text-gray-700 mb-1" for="username">Usuario</label>
+        <input id="username" name="username" type="text" required
+               class="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-300">
+      </div>
+
+      <div>
+        <label class="block text-sm text-gray-700 mb-1" for="password">Contraseña</label>
+        <input id="password" name="password" type="password" required
+               class="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-300">
+      </div>
+
+      <button type="submit"
+              class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 rounded-xl shadow">
+        Entrar
+      </button>
+    </form>
+
+    <div class="text-center mt-4">
+      <a href="{{ url_for('logout') }}" class="text-sm text-gray-500 hover:underline">Cerrar sesión</a>
+    </div>
+  </div>
+</body>
+</html>

@@ -1,0 +1,184 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PilotoPOS – Historial</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card {
+      background-color: white;
+      border-radius: 1rem;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+      padding: 1.5rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <!-- Navbar con iconos (estilo Almacén) -->
+  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
+    <a href="/" class="hover:underline flex items-center gap-2">
+      <i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas
+    </a>
+    <a href="/almacen" class="hover:underline flex items-center gap-2">
+      <i data-lucide="box" class="w-4 h-4"></i> Almacén
+    </a>
+    <a href="/historial" class="underline flex items-center gap-2">
+      <i data-lucide="bar-chart" class="w-4 h-4"></i> Historial
+    </a>
+    <a href="/usuarios" class="hover:underline flex items-center gap-2">
+      <i data-lucide="users" class="w-4 h-4"></i> Usuarios
+    </a>
+    <a href="/login" class="hover:underline flex items-center gap-2">
+      <i data-lucide="lock" class="w-4 h-4"></i> Login
+    </a>
+  </nav>
+
+  <main class="max-w-7xl mx-auto py-10 px-6">
+    <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center">📈 Historial de Ventas</h1>
+
+    <div class="grid md:grid-cols-3 gap-4 mb-8">
+      <input type="date" id="fechaInicio" class="p-2 border rounded-xl shadow-sm" placeholder="Desde...">
+      <input type="date" id="fechaFin" class="p-2 border rounded-xl shadow-sm" placeholder="Hasta...">
+      <input type="text" id="busqueda" placeholder="Buscar producto..." class="p-2 border rounded-xl shadow-sm">
+    </div>
+
+    <section class="grid md:grid-cols-4 gap-6 mb-10">
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Ingresos hoy</h2>
+        <p id="ingresosHoy" class="text-2xl font-bold text-cyan-700">$0.00</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Ingresos semana</h2>
+        <p id="ingresosSemana" class="text-2xl font-bold text-cyan-700">$0.00</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Producto más vendido</h2>
+        <p id="productoMasVendido" class="text-lg font-semibold text-gray-700">—</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Ventas totales</h2>
+        <p id="ventasTotales" class="text-2xl font-bold text-cyan-700">0</p>
+      </div>
+    </section>
+
+    <div class="card mb-10">
+      <h3 class="text-lg font-semibold text-gray-700 mb-4">📊 Ingresos últimos 7 días</h3>
+      <canvas id="graficaIngresos" height="100"></canvas>
+    </div>
+
+    <div class="card overflow-x-auto">
+      <h3 class="text-xl font-bold text-cyan-700 mb-4">🧾 Historial de ventas</h3>
+      <table class="min-w-full text-sm">
+        <thead class="bg-cyan-100 text-cyan-800">
+          <tr>
+            <th class="px-4 py-2 text-left">Fecha</th>
+            <th class="px-4 py-2 text-left">Productos</th>
+            <th class="px-4 py-2 text-left">Total</th>
+          </tr>
+        </thead>
+        <tbody id="tablaHistorial" class="divide-y">
+        </tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    async function cargarHistorial() {
+      const res = await fetch('/api/historial');
+      const data = await res.json();
+
+      const tabla = document.getElementById("tablaHistorial");
+      const hoy = new Date();
+      const hoyStr = hoy.toLocaleDateString('es-ES');
+
+      let totalHoy = 0;
+      let totalSemana = 0;
+      let totalVentas = 0;
+      let conteoProductos = {};
+      let ingresosPorDia = {};
+
+      tabla.innerHTML = "";
+
+      data.forEach(venta => {
+        const fechaVenta = venta.fecha;
+        const horaVenta = venta.hora;
+        const total = venta.total ?? 0;
+
+        const productos = venta.productos.map(p => {
+          const nombre = p.nombre;
+          conteoProductos[nombre] = (conteoProductos[nombre] || 0) + p.cantidad;
+          return `${nombre} x${p.cantidad}`;
+        });
+
+        const fila = document.createElement("tr");
+        fila.className = "hover:bg-gray-50";
+        fila.innerHTML = `
+          <td class="px-4 py-2">${fechaVenta} ${horaVenta}</td>
+          <td class="px-4 py-2">${productos.join(', ')}</td>
+          <td class="px-4 py-2">$${total.toFixed(2)}</td>
+        `;
+        tabla.appendChild(fila);
+
+        totalVentas++;
+
+        const fechaVentaObj = new Date(fechaVenta + "T00:00");
+        if (fechaVentaObj.toLocaleDateString('es-ES') === hoyStr) {
+          totalHoy += total;
+        }
+
+        const diffDias = (hoy - fechaVentaObj) / (1000 * 60 * 60 * 24);
+        if (diffDias <= 7) {
+          totalSemana += total;
+          const dia = fechaVentaObj.toLocaleDateString('es-ES', { weekday: 'long' });
+          ingresosPorDia[dia] = (ingresosPorDia[dia] || 0) + total;
+        }
+      });
+
+      document.getElementById("ingresosHoy").textContent = `$${totalHoy.toFixed(2)}`;
+      document.getElementById("ingresosSemana").textContent = `$${totalSemana.toFixed(2)}`;
+      document.getElementById("ventasTotales").textContent = totalVentas;
+
+      const masVendido = Object.entries(conteoProductos).sort((a,b) => b[1] - a[1])[0];
+      document.getElementById("productoMasVendido").textContent = masVendido ? `${masVendido[0]} x${masVendido[1]}` : '—';
+
+      graficar(ingresosPorDia);
+    }
+
+    function graficar(ingresos) {
+      const labels = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
+      const valores = labels.map(dia => ingresos[dia] || 0);
+
+      const ctx = document.getElementById('graficaIngresos').getContext('2d');
+      new Chart(ctx, {
+        type: 'line',
+        data: {
+          labels,
+          datasets: [{
+            label: 'Ingresos ($)',
+            data: valores,
+            fill: true,
+            tension: 0.4,
+            borderColor: 'rgb(14 116 144)',
+            backgroundColor: 'rgba(14, 116, 144, 0.2)',
+            pointBackgroundColor: 'rgb(14 116 144)',
+            pointRadius: 5
+          }]
+        },
+        options: {
+          responsive: true,
+          plugins: { legend: { display: false }},
+          scales: { y: { beginAtZero: true }}
+        }
+      });
+    }
+
+    cargarHistorial();
+    // Renderizar iconos del navbar
+    if (window.lucide) lucide.createIcons();
+  </script>
+</body>
+</html>

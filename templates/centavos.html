@@ -1,0 +1,147 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PilotoPOS – Centavos</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card { background: white; border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.25rem; }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <!-- Navbar con iconos (estilo Almacén) -->
+  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
+    <a href="/" class="hover:underline flex items-center gap-2">
+      <i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas
+    </a>
+    <a href="/almacen" class="hover:underline flex items-center gap-2">
+      <i data-lucide="box" class="w-4 h-4"></i> Almacén
+    </a>
+    <a href="/historial" class="hover:underline flex items-center gap-2">
+      <i data-lucide="bar-chart" class="w-4 h-4"></i> Historial
+    </a>
+    <a href="/centavos" class="underline flex items-center gap-2">
+      <i data-lucide="coins" class="w-4 h-4"></i> Centavos
+    </a>
+    <a href="/usuarios" class="hover:underline flex items-center gap-2">
+      <i data-lucide="users" class="w-4 h-4"></i> Usuarios
+    </a>
+    <a href="/login" class="hover:underline flex items-center gap-2">
+      <i data-lucide="lock" class="w-4 h-4"></i> Login
+    </a>
+  </nav>
+
+  <main class="max-w-6xl mx-auto py-10 px-6">
+    <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center">💰 Centavos redondeados</h1>
+
+    <!-- Tarjetas -->
+    <section class="grid md:grid-cols-4 gap-6 mb-8">
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Centavos acumulados</h2>
+        <p id="totalCentavos" class="text-2xl font-bold text-cyan-700">$0.00</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Ventas con redondeo</h2>
+        <p id="conteoVentas" class="text-2xl font-bold text-cyan-700">0</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Promedio por venta</h2>
+        <p id="promedio" class="text-2xl font-bold text-cyan-700">$0.00</p>
+      </div>
+      <div class="card">
+        <h2 class="text-sm text-gray-500 mb-1">Último aporte</h2>
+        <p id="ultimo" class="text-2xl font-bold text-cyan-700">$0.00</p>
+      </div>
+    </section>
+
+    <!-- Tabla -->
+    <div class="card overflow-x-auto">
+      <div class="flex items-center justify-between mb-4">
+        <h3 class="text-xl font-bold text-cyan-700">🧾 Detalle de redondeos</h3>
+        <input id="buscar" type="text" placeholder="Buscar por producto..." class="border rounded-xl px-3 py-2 shadow-sm w-64">
+      </div>
+      <table class="min-w-full text-sm">
+        <thead class="bg-cyan-100 text-cyan-800">
+          <tr>
+            <th class="px-4 py-2 text-left">Fecha</th>
+            <th class="px-4 py-2 text-left">Productos</th>
+            <th class="px-4 py-2 text-left">Total venta</th>
+            <th class="px-4 py-2 text-left">Centavos aportados</th>
+          </tr>
+        </thead>
+        <tbody id="tablaCentavos" class="divide-y"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    let ventasConRedondeo = [];
+
+    async function cargar() {
+      const res = await fetch('/api/historial');
+      const historial = await res.json();
+
+      // Filtro: solo ventas con redondeo > 0
+      ventasConRedondeo = historial
+        .map(v => {
+          // Soporte retroactivo: si no existe "redondeo", lo calculamos
+          const red = typeof v.redondeo === 'number' ? v.redondeo : 0;
+          return { ...v, redondeo: Number(red) };
+        })
+        .filter(v => v.redondeo > 0);
+
+      renderStats();
+      renderTabla(ventasConRedondeo);
+
+      // búsqueda rápida
+      document.getElementById('buscar').addEventListener('input', (e) => {
+        const q = e.target.value.toLowerCase().trim();
+        if (!q) return renderTabla(ventasConRedondeo);
+        const filtradas = ventasConRedondeo.filter(v =>
+          (v.productos || []).some(p => (p.nombre || '').toLowerCase().includes(q))
+        );
+        renderTabla(filtradas);
+      });
+    }
+
+    function renderStats() {
+      const totalCentavos = ventasConRedondeo.reduce((acc, v) => acc + (v.redondeo || 0), 0);
+      const n = ventasConRedondeo.length;
+      const promedio = n ? (totalCentavos / n) : 0;
+      const ultimo = n ? ventasConRedondeo[ventasConRedondeo.length - 1].redondeo : 0;
+
+      document.getElementById('totalCentavos').textContent = `$${totalCentavos.toFixed(2)}`;
+      document.getElementById('conteoVentas').textContent = n;
+      document.getElementById('promedio').textContent = `$${promedio.toFixed(2)}`;
+      document.getElementById('ultimo').textContent = `$${Number(ultimo).toFixed(2)}`;
+    }
+
+    function renderTabla(lista) {
+      const tbody = document.getElementById('tablaCentavos');
+      tbody.innerHTML = '';
+      lista.forEach(v => {
+        const productosTxt = (v.productos || [])
+          .map(p => `${p.nombre} x${p.cantidad}`)
+          .join(', ');
+
+        const tr = document.createElement('tr');
+        tr.className = 'hover:bg-gray-50';
+        tr.innerHTML = `
+          <td class="px-4 py-2">${v.fecha} ${v.hora || ''}</td>
+          <td class="px-4 py-2">${productosTxt}</td>
+          <td class="px-4 py-2">$${Number(v.total || 0).toFixed(2)}</td>
+          <td class="px-4 py-2 font-semibold text-cyan-700">$${Number(v.redondeo || 0).toFixed(2)}</td>
+        `;
+        tbody.appendChild(tr);
+      });
+    }
+
+    cargar();
+    // Renderizar iconos del navbar
+    if (window.lucide) lucide.createIcons();
+  </script>
+</body>
+</html>

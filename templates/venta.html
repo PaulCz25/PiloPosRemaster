@@ -1,0 +1,306 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PilotoPOS – Ventas</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: 'Inter', sans-serif; }
+    .card {
+      border-radius: 1.25rem;
+      background: #fff;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06);
+      border: 1px solid rgba(14,116,144,.06);
+    }
+    .soft-divider { border-top: 1px solid rgba(0,0,0,.06); }
+    .input {
+      border: 1px solid rgb(165 243 252 / .6);
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      width: 100%;
+      outline: none;
+    }
+    .input:focus {
+      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
+      border-color: rgb(14 116 144);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 0.75rem; font-weight: 600; transition: .15s ease;
+      box-shadow: 0 6px 14px -6px rgba(14,116,144,.35);
+    }
+    .btn-primary { background:#0891b2; color:#fff; }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-success { background:#059669; color:#fff; }
+    .btn-danger { background:#dc2626; color:#fff; }
+    .pill { padding:.5rem 1rem; border-radius:9999px; font-weight:600; font-size:.9rem; }
+    .pill-yes { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
+    .pill-no { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
+    .active { box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); transform: translateY(-1px); }
+    .totals-card {
+      background: linear-gradient(180deg, #f7fbff 0%, #f3f8ff 100%);
+      border: 1px solid rgba(14,116,144,.12);
+      border-radius: 1rem;
+    }
+  </style>
+</head>
+<body class="bg-gray-50 min-h-screen flex">
+
+  <!-- Sidebar -->
+  <aside class="w-64 bg-gradient-to-b from-cyan-700 to-cyan-500 text-white flex flex-col py-8 px-6 shadow-2xl rounded-r-3xl">
+    
+    <!-- Logo + Marca (más predominante, sin tarjeta) -->
+    <div class="flex flex-col items-center mb-12">
+      <img src="/static/logo-piloto.png" alt="PilotoPOS" class="h-28 md:h-32 w-auto mb-4 drop-shadow-lg" />
+      <span class="text-xl font-bold tracking-wide text-white/95">PilotoPOS</span>
+      <!-- Si quieres un subtítulo, descomenta esta línea -->
+      <!-- <span class="text-sm text-cyan-100">Punto de Venta</span> -->
+    </div>
+
+    <div class="mb-4 text-sm uppercase tracking-wider text-cyan-100">Navegación</div>
+    <nav class="flex flex-col gap-3 text-base">
+      <a href="/" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="shopping-cart" class="w-5 h-5"></i> Ventas
+      </a>
+      <a href="/almacen" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="box" class="w-5 h-5"></i> Almacén
+      </a>
+      <a href="/historial" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="bar-chart" class="w-5 h-5"></i> Historial
+      </a>
+      <a href="/centavos" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="coins" class="w-5 h-5"></i> Centavos
+      </a>
+    </nav>
+
+    <div class="mt-8 mb-2 text-sm uppercase tracking-wider text-cyan-100">Cuenta</div>
+    <nav class="flex flex-col gap-3 text-base">
+      <a href="/usuarios" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="users" class="w-5 h-5"></i> Usuarios
+      </a>
+      <a href="/login" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="lock" class="w-5 h-5"></i> Login
+      </a>
+    </nav>
+  </aside>
+
+  <!-- Contenido principal -->
+  <main class="flex-1 p-8">
+    <div class="card p-8 max-w-4xl mx-auto">
+      <h2 class="text-4xl font-extrabold text-cyan-700 mb-6 flex items-center gap-3">
+        <i data-lucide="shopping-cart" class="w-8 h-8"></i>
+        Punto de Venta
+      </h2>
+
+      <!-- Captura de código -->
+      <form method="POST" action="/agregar-producto" class="mb-6">
+        <label for="codigo" class="block text-gray-800 font-semibold mb-2">Escanea o ingresa el código:</label>
+        <div class="flex gap-3">
+          <input type="text" id="codigo" name="codigo" required autofocus
+                 class="input flex-1" placeholder="Ej: QR123, AZT55, 1234">
+          <button type="submit" class="btn btn-primary px-6 py-3">Agregar</button>
+        </div>
+      </form>
+
+      {% if mensaje %}
+        <div class="bg-yellow-50 text-yellow-800 border border-yellow-100 px-4 py-3 rounded-xl shadow-sm mb-6">
+          {{ mensaje }}
+        </div>
+      {% endif %}
+
+      {% if carrito %}
+        <!-- Carrito -->
+        <div class="rounded-2xl border border-gray-200/60 p-5 mb-6">
+          <div class="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4">
+            <i data-lucide="list-checks" class="w-5 h-5 text-cyan-700"></i> Carrito
+          </div>
+
+          <ul id="listaCarrito" class="divide-y divide-gray-100 mb-4">
+            {% for item in carrito %}
+              <li class="py-3 flex items-center justify-between" data-index="{{ loop.index0 }}">
+                <div class="flex items-center gap-3">
+                  <span class="text-gray-800">{{ item.nombre }}</span>
+                </div>
+                <div class="flex items-center gap-4">
+                  <div class="text-gray-900 font-semibold">${{ '%.2f'|format(item.precio) }}</div>
+                  <button type="button" onclick="quitarItem({{ loop.index0 }})"
+                          class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
+                    <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
+                  </button>
+                </div>
+              </li>
+            {% endfor %}
+          </ul>
+
+          <div class="soft-divider my-4"></div>
+
+          <div class="flex items-center justify-between">
+            <div class="text-lg font-semibold text-gray-900">Total</div>
+            <div class="text-xl font-extrabold text-gray-900">
+              $<span id="totalBruto">{{ '%.2f'|format(total) }}</span>
+            </div>
+          </div>
+
+          <div class="text-right mt-4">
+            <button type="button" onclick="mostrarRedondeo()" class="btn btn-primary px-5 py-2.5">Pagar</button>
+          </div>
+
+          <div id="redondeoArea" class="mt-4 hidden">
+            <div class="flex items-center gap-3 justify-end">
+              <span class="text-gray-700">Redondear a
+                <strong class="text-gray-900">${{ '%.2f'|format(total_redondeado) }}</strong>
+              </span>
+              <button id="btnYes" type="button" onclick="aceptarRedondeo()" class="pill pill-yes">Sí</button>
+              <button id="btnNo" type="button" onclick="rechazarRedondeo()" class="pill pill-no">No</button>
+            </div>
+          </div>
+        </div>
+
+        <!-- Pago y resumen -->
+        <div id="bloquePago" class="grid md:grid-cols-[1fr_auto] items-start gap-4 hidden">
+          <div class="order-2 md:order-2 md:justify-self-end">
+            <div class="flex items-center gap-2">
+              <label for="pagoCliente" class="font-semibold text-gray-800 whitespace-nowrap">
+                ¿Con cuánto pagó el cliente?
+              </label>
+              <input type="number" id="pagoCliente" step="0.01" placeholder="$ 0.00"
+                     class="input w-36 text-right">
+            </div>
+          </div>
+
+          <div class="order-1 md:order-1 totals-card p-5">
+            <div id="resultadoCambio" class="hidden space-y-2">
+              <div class="flex justify-between text-gray-700">
+                <span>Total a pagar:</span>
+                <span id="montoTotal" class="font-bold text-gray-900">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-700">
+                <span>Pago recibido:</span>
+                <span id="montoPago" class="font-bold text-emerald-600">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-700">
+                <span>Cambio a devolver:</span>
+                <span id="montoCambio" class="font-bold text-emerald-600">$0.00</span>
+              </div>
+            </div>
+
+            <div class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+              <button type="button" onclick="calcularCambio()" class="btn btn-success px-4 py-2">
+                Calcular cambio
+              </button>
+
+              <div id="finalizarCompra" class="hidden">
+                <form method="POST" action="/redondear" class="inline-block">
+                  <input type="hidden" id="campoRedondeo" name="aceptado" value="">
+                  <button type="submit" class="btn btn-primary px-6 py-3">
+                    Finalizar compra
+                  </button>
+                </form>
+              </div>
+            </div>
+          </div>
+        </div>
+      {% endif %}
+    </div>
+
+    <script>
+      function mostrarRedondeo() {
+        document.getElementById("redondeoArea").classList.remove("hidden");
+        document.getElementById("bloquePago")?.classList.add("hidden");
+        document.getElementById("resultadoCambio")?.classList.add("hidden");
+        document.getElementById("finalizarCompra")?.classList.add("hidden");
+      }
+
+      let totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+      let totalFinal = totalVenta;
+
+      function setActive(btnOn, btnOff){
+        btnOn.classList.add('active');
+        btnOff.classList.remove('active');
+      }
+
+      function aceptarRedondeo() {
+        totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+        totalFinal = Math.ceil(totalVenta);
+        document.getElementById("campoRedondeo").value = "si";
+        setActive(document.getElementById('btnYes'), document.getElementById('btnNo'));
+        document.getElementById("bloquePago").classList.remove("hidden");
+        document.getElementById("resultadoCambio").classList.add("hidden");
+        document.getElementById("finalizarCompra").classList.add("hidden");
+      }
+
+      function rechazarRedondeo() {
+        totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+        totalFinal = totalVenta;
+        document.getElementById("campoRedondeo").value = "no";
+        setActive(document.getElementById('btnNo'), document.getElementById('btnYes'));
+        document.getElementById("bloquePago").classList.remove("hidden");
+        document.getElementById("resultadoCambio").classList.add("hidden");
+        document.getElementById("finalizarCompra").classList.add("hidden");
+      }
+
+      function calcularCambio() {
+        const pago = parseFloat(document.getElementById("pagoCliente").value);
+        const resultadoDiv = document.getElementById("resultadoCambio");
+
+        if (isNaN(pago) || pago < totalFinal) {
+          resultadoDiv.classList.remove("hidden");
+          resultadoDiv.innerHTML =
+            '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
+          document.getElementById("finalizarCompra").classList.add("hidden");
+          return;
+        }
+
+        const cambio = (pago - totalFinal).toFixed(2);
+        document.getElementById("montoTotal").textContent = `$${totalFinal.toFixed(2)}`;
+        document.getElementById("montoPago").textContent  = `$${pago.toFixed(2)}`;
+        document.getElementById("montoCambio").textContent = `$${cambio}`;
+
+        resultadoDiv.classList.remove("hidden");
+        document.getElementById("finalizarCompra").classList.remove("hidden");
+      }
+
+      async function quitarItem(idx){
+        try {
+          const resp = await fetch('/carrito/eliminar', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ index: idx })
+          });
+          const data = await resp.json();
+
+          if (!resp.ok || !data.ok) return;
+
+          const li = document.querySelector(`li[data-index="${idx}"]`);
+          if (li) li.remove();
+
+          document.querySelectorAll('#listaCarrito li').forEach((el, i) => {
+            el.setAttribute('data-index', i);
+            const btn = el.querySelector('button[onclick^="quitarItem"]');
+            if (btn) btn.setAttribute('onclick', `quitarItem(${i})`);
+          });
+
+          totalVenta = Number(data.total) || 0;
+          const siActivo = document.getElementById('btnYes')?.classList.contains('active');
+          totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
+          document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
+
+          document.getElementById("bloquePago")?.classList.add("hidden");
+          document.getElementById("resultadoCambio")?.classList.add("hidden");
+          document.getElementById("finalizarCompra")?.classList.add("hidden");
+          if ((data.count || 0) === 0) {
+            document.getElementById("redondeoArea")?.classList.add("hidden");
+          }
+        } catch (e) {
+          console.error(e);
+        }
+      }
+
+      lucide.createIcons();
+    </script>
+  </main>
+</body>
+</html>

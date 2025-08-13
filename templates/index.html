@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8">
+  <title>PilotoPOS</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 font-sans">
+
+  <div class="max-w-xl mx-auto mt-10 bg-white p-6 rounded-xl shadow-xl border border-cyan-200">
+    <h1 class="text-3xl font-bold text-cyan-500 text-center mb-6">Bienvenido a PilotoPOS</h1>
+
+    <!-- Entrada de código QR -->
+    <div class="flex gap-2 mb-4">
+      <input id="qrInput" type="text" placeholder="Código QR" class="flex-1 border px-3 py-2 rounded">
+      <button onclick="agregarProducto()" class="bg-cyan-500 text-white px-4 py-2 rounded hover:bg-cyan-600">Agregar</button>
+    </div>
+
+    <!-- Carrito -->
+    <ul id="listaProductos" class="mb-4 space-y-2"></ul>
+    <div id="total" class="text-xl font-semibold text-right mb-4">Total: $0.00</div>
+
+    <!-- Redondeo -->
+    <div id="redondeo" class="text-right mb-4 hidden">
+      ¿Redondear a <span id="montoRedondeado"></span>?
+      <button onclick="aceptarRedondeo()" class="ml-2 bg-cyan-500 text-white px-3 py-1 rounded hover:bg-cyan-600">Sí</button>
+      <button onclick="rechazarRedondeo()" class="ml-2 bg-gray-300 text-gray-700 px-3 py-1 rounded">No</button>
+    </div>
+
+    <!-- Almacén -->
+    <div class="mt-10 bg-white rounded-2xl shadow-xl p-6">
+      <h2 class="text-xl font-bold text-cyan-600 mb-4">Almacén – Registrar Producto</h2>
+      <div class="grid gap-4 md:grid-cols-3">
+        <input id="codigoNuevo" type="text" placeholder="Código QR" class="border px-3 py-2 rounded-xl">
+        <input id="nombreNuevo" type="text" placeholder="Nombre del producto" class="border px-3 py-2 rounded-xl">
+        <input id="precioNuevo" type="number" placeholder="Precio" class="border px-3 py-2 rounded-xl">
+      </div>
+      <button onclick="guardarProducto()" class="mt-4 bg-cyan-600 text-white px-4 py-2 rounded-xl hover:bg-cyan-700">
+        Guardar producto
+      </button>
+    </div>
+  </div>
+
+  <script>
+    let productos = [];
+    let total = 0;
+
+    // Cargar productos desde el backend
+    fetch("/static/productos.json")
+      .then(res => res.json())
+      .then(data => catalogo = data);
+
+    function agregarProducto() {
+      const codigo = document.getElementById("qrInput").value.trim();
+      const producto = catalogo[codigo];
+      if (!producto) {
+        alert("Producto no encontrado");
+        return;
+      }
+
+      productos.push(producto);
+      total += producto.precio;
+      actualizarVista();
+      document.getElementById("qrInput").value = "";
+    }
+
+    function actualizarVista() {
+      const lista = document.getElementById("listaProductos");
+      lista.innerHTML = "";
+      productos.forEach(p => {
+        const li = document.createElement("li");
+        li.textContent = `${p.nombre} - $${p.precio.toFixed(2)}`;
+        lista.appendChild(li);
+      });
+
+      document.getElementById("total").textContent = `Total: $${total.toFixed(2)}`;
+
+      const siguienteEntero = Math.ceil(total);
+      const diferencia = (siguienteEntero - total).toFixed(2);
+
+      if (diferencia > 0) {
+        document.getElementById("montoRedondeado").textContent = `$${siguienteEntero.toFixed(2)}`;
+        document.getElementById("redondeo").classList.remove("hidden");
+      } else {
+        document.getElementById("redondeo").classList.add("hidden");
+      }
+    }
+
+    function aceptarRedondeo() {
+      const siguienteEntero = Math.ceil(total);
+      alert(`Venta completada. Redondeo: $${(siguienteEntero - total).toFixed(2)}`);
+      productos = [];
+      total = 0;
+      actualizarVista();
+    }
+
+    function rechazarRedondeo() {
+      alert("Venta completada sin redondeo.");
+      productos = [];
+      total = 0;
+      actualizarVista();
+    }
+
+    function guardarProducto() {
+      const codigo = document.getElementById("codigoNuevo").value;
+      const nombre = document.getElementById("nombreNuevo").value;
+      const precio = document.getElementById("precioNuevo").value;
+
+      if (!codigo || !nombre || !precio) {
+        alert("Completa todos los campos");
+        return;
+      }
+
+      fetch("/guardar_producto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo, nombre, precio })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("Producto guardado exitosamente");
+          document.getElementById("codigoNuevo").value = "";
+          document.getElementById("nombreNuevo").value = "";
+          document.getElementById("precioNuevo").value = "";
+        }
+      });
+    }
+
+    let catalogo = {};
+    fetch("/productos.json")
+      .then(res => res.json())
+      .then(data => catalogo = data);
+  </script>
+</body>
+</html>
+

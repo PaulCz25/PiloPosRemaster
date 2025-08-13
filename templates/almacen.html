@@ -1,0 +1,366 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <title>PilotoPOS – Almacén</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    body { font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
+
+    .card {
+      background: #fff;
+      border-radius: 1rem;
+      box-shadow:
+        0 10px 15px -3px rgba(0,0,0,.08),
+        0 4px 6px -4px rgba(0,0,0,.06);
+      border: 1px solid rgba(14,116,144,.06);
+    }
+
+    .input, .select {
+      border: 1px solid rgba(14,116,144,.18);
+      border-radius: .75rem;
+      padding: .6rem .85rem;
+      outline: none;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      transition: box-shadow .2s, border-color .2s;
+      background: #fff;
+    }
+    .input:focus, .select:focus {
+      border-color: rgb(14 116 144);
+      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
+    }
+
+    .btn {
+      display: inline-flex; align-items: center; gap:.5rem;
+      border-radius: .75rem; font-weight: 600; padding: .55rem .9rem;
+      transition: transform .15s, filter .15s;
+      white-space: nowrap;
+    }
+    .btn:hover { transform: translateY(-1px); filter: brightness(1.02); }
+    .btn-prim { background: #0ea5a4; color: #fff; }
+    .btn-warn { background: #f59e0b; color: #fff; }
+    .btn-danger { background: #ef4444; color: #fff; }
+
+    .chip { font-weight: 700; font-size: .75rem; padding: .25rem .6rem; border-radius: 9999px; display:inline-block; }
+    .chip-red { background:#fee2e2; color:#991b1b; }
+    .chip-amber { background:#fef3c7; color:#92400e; }
+    .chip-green { background:#dcfce7; color:#065f46; }
+
+    .table-wrap { overflow: auto; }
+    thead th {
+      position: sticky; top: 0; z-index: 1;
+      background: #ecfeff; color:#0e7490;
+      border-bottom: 1px solid rgba(14,116,144,.15);
+    }
+    tbody tr:hover { background: #fafafa; }
+
+    .filters-sticky {
+      position: sticky; top: 0; z-index: 10;
+      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
+      border-bottom: 1px solid rgba(14,116,144,.08);
+      backdrop-filter: blur(2px);
+    }
+
+    .animate-fade-in { animation: fadeIn .22s ease-out; }
+    @keyframes fadeIn {
+      from { opacity: 0; transform: translateY(6px) scale(.98); }
+      to { opacity: 1; transform: translateY(0) scale(1); }
+    }
+  </style>
+</head>
+<body class="bg-gray-100">
+
+  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
+    <a href="/" class="hover:underline flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+    <a href="/almacen" class="hover:underline underline flex items-center gap-2"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+    <a href="/historial" class="hover:underline flex items-center gap-2"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+    <a href="/usuarios" class="hover:underline flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
+    <a href="/login" class="hover:underline flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
+  </nav>
+
+  <div class="max-w-5xl mx-auto p-6 mt-8 card">
+    <div class="flex items-start justify-between gap-4 flex-wrap">
+      <div>
+        <h1 class="text-2xl font-bold text-cyan-700 mb-1 flex items-center gap-2">
+          <i data-lucide="package-plus" class="w-6 h-6"></i> Módulo de Almacén
+        </h1>
+        <p class="text-gray-600">Registra o edita productos del sistema.</p>
+      </div>
+      <div class="hidden md:flex items-center gap-2 text-xs text-gray-500">
+        <span class="chip chip-red">Agotado</span>
+        <span class="chip chip-amber">Por acabarse</span>
+        <span class="chip chip-green">Stock suficiente</span>
+      </div>
+    </div>
+
+    <div class="mt-6 grid gap-4 md:grid-cols-4">
+      <input id="codigoNuevo" type="text" placeholder="Código QR" class="input" />
+      <input id="nombreNuevo" type="text" placeholder="Nombre del producto" class="input" />
+      <input id="precioNuevo" type="number" step="0.01" placeholder="Precio" class="input" />
+      <input id="cantidadNuevo" type="number" placeholder="Cantidad" class="input" />
+    </div>
+
+    <button onclick="guardarProducto()" class="mt-4 btn btn-prim shadow">
+      <i data-lucide="save"></i> Guardar producto
+    </button>
+  </div>
+
+  <div class="filters-sticky">
+    <div class="max-w-5xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+      <div class="flex items-stretch w-full md:w-1/2">
+        <div class="relative flex-1">
+          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-700"></i>
+          <input type="text" id="busquedaNombre" placeholder="Buscar por nombre..." class="input pl-9 w-full" />
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        <i data-lucide="filter" class="w-4 h-4 text-cyan-700"></i>
+        <select id="filtroEstado" class="select">
+          <option value="">Filtrar por estado</option>
+          <option value="Agotado">Agotado</option>
+          <option value="Por acabarse">Por acabarse</option>
+          <option value="Stock suficiente">Stock suficiente</option>
+        </select>
+      </div>
+    </div>
+  </div>
+
+  <div class="max-w-5xl mx-auto mt-6 card p-0">
+    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+      <h2 class="text-lg font-bold text-cyan-700 flex items-center gap-2">
+        <i data-lucide="clipboard-list" class="w-5 h-5"></i> Productos registrados
+      </h2>
+      <div class="md:hidden text-xs text-gray-500 flex items-center gap-2">
+        <span class="chip chip-red">Agotado</span>
+        <span class="chip chip-amber">Por acabarse</span>
+        <span class="chip chip-green">Stock suficiente</span>
+      </div>
+    </div>
+
+    <div class="table-wrap">
+      <table class="w-full text-sm table-fixed">
+        <colgroup>
+          <col class="w-28">
+          <col>
+          <col class="w-36">
+          <col class="w-28">
+          <col class="w-60"> <!-- ancho ampliado -->
+          <col class="w-32">
+        </colgroup>
+        <thead>
+          <tr>
+            <th class="px-4 py-3 text-left whitespace-nowrap">Código</th>
+            <th class="px-4 py-3 text-left">Nombre</th>
+            <th class="px-4 py-3 text-left whitespace-nowrap">Precio</th>
+            <th class="px-4 py-3 text-left whitespace-nowrap">Cantidad</th>
+            <th class="px-4 py-3 text-left">Acciones</th>
+            <th class="px-4 py-3 text-left">Estado</th>
+          </tr>
+        </thead>
+        <tbody id="tablaProductos" class="divide-y divide-gray-100"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <div id="modal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center">
+    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center animate-fade-in">
+      <i data-lucide="alert-triangle" class="w-10 h-10 text-amber-500 mx-auto mb-2"></i>
+      <h2 id="modalTitulo" class="text-xl font-bold text-gray-800 mb-2">¿Confirmar acción?</h2>
+      <p id="modalMensaje" class="text-gray-600 mb-6">¿Estás seguro?</p>
+      <div class="flex justify-center gap-3">
+        <button id="btnCancelar" class="btn bg-gray-200 text-gray-700 hover:brightness-95">Cancelar</button>
+        <button id="btnConfirmar" class="btn btn-prim">Confirmar</button>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    let accionModal = null;
+    let todosLosProductos = {};
+
+    function guardarProducto() {
+      const codigo = document.getElementById("codigoNuevo").value.trim();
+      const nombre = document.getElementById("nombreNuevo").value.trim();
+      const precio = parseFloat(document.getElementById("precioNuevo").value);
+      const cantidad = parseInt(document.getElementById("cantidadNuevo").value);
+
+      if (!codigo || !nombre || isNaN(precio) || isNaN(cantidad)) {
+        alert("⚠️ Completa todos los campos correctamente.");
+        return;
+      }
+
+      fetch("/guardar_producto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo, nombre, precio, cantidad })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("✅ Producto guardado exitosamente.");
+          document.getElementById("codigoNuevo").value = "";
+          document.getElementById("nombreNuevo").value = "";
+          document.getElementById("precioNuevo").value = "";
+          document.getElementById("cantidadNuevo").value = "";
+          cargarProductos();
+        } else {
+          alert("❌ Ocurrió un error al guardar.");
+        }
+      });
+    }
+
+    function cargarProductos() {
+      fetch("/api/productos")
+        .then(res => res.json())
+        .then(productos => {
+          todosLosProductos = productos;
+          renderizarProductos();
+        });
+    }
+
+    function renderizarProductos() {
+      const tbody = document.getElementById("tablaProductos");
+      tbody.innerHTML = "";
+
+      const filtroNombre = document.getElementById("busquedaNombre").value.toLowerCase();
+      const filtroEstado = document.getElementById("filtroEstado").value;
+
+      for (const codigo in todosLosProductos) {
+        const prod = todosLosProductos[codigo];
+        const nombre = (prod.nombre || "").toLowerCase();
+        const cantidad = prod.cantidad ?? 0;
+
+        let estadoTexto = "Desconocido";
+        let estadoChip = '<span class="chip">—</span>';
+
+        if (cantidad === 0) {
+          estadoTexto = "Agotado";
+          estadoChip = '<span class="chip chip-red">Agotado</span>';
+        } else if (cantidad <= 5) {
+          estadoTexto = "Por acabarse";
+          estadoChip = '<span class="chip chip-amber">Por acabarse</span>';
+        } else if (cantidad > 5) {
+          estadoTexto = "Stock suficiente";
+          estadoChip = '<span class="chip chip-green">Stock suficiente</span>';
+        }
+
+        if ((filtroNombre && !nombre.includes(filtroNombre)) ||
+            (filtroEstado && filtroEstado !== estadoTexto)) {
+          continue;
+        }
+
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td class="px-4 py-3 font-medium text-gray-800">${codigo}</td>
+          <td class="px-4 py-3 text-gray-700">${prod.nombre ?? ''}</td>
+          <td class="px-4 py-3">
+            <div class="relative">
+              <input type="number" step="0.01" value="${prod.precio ?? 0}" class="input w-32 pr-8" id="precio_${codigo}">
+              <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+            </div>
+          </td>
+          <td class="px-4 py-3">
+            <input type="number" value="${cantidad}" class="input w-24" id="cantidad_${codigo}">
+          </td>
+          <td class="px-4 py-3 overflow-visible">
+            <div class="flex items-center gap-2 whitespace-nowrap">
+              <button onclick="abrirModalGuardar('${codigo}', '${(prod.nombre ?? '').replace(/'/g, "\\'")}')" class="btn btn-warn">
+                <i data-lucide="save"></i> Guardar
+              </button>
+              <button onclick="abrirModalEliminar('${codigo}', '${(prod.nombre ?? '').replace(/'/g, "\\'")}')" class="btn btn-danger">
+                <i data-lucide="trash-2"></i> Eliminar
+              </button>
+            </div>
+          </td>
+          <td class="px-4 py-3">${estadoChip}</td>
+        `;
+        tbody.appendChild(fila);
+      }
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function abrirModalGuardar(codigo, nombre) {
+      mostrarModal("¿Guardar cambios?", `¿Deseas guardar los cambios de <strong>${nombre}</strong>?`, () => editarProducto(codigo, nombre));
+    }
+
+    function abrirModalEliminar(codigo, nombre) {
+      mostrarModal("⚠️ Confirmar eliminación", `¿Eliminar el producto <strong>${nombre}</strong>? Esta acción no se puede deshacer.`, () => eliminarProducto(codigo));
+    }
+
+    function mostrarModal(titulo, mensaje, accionConfirmar) {
+      document.getElementById("modalTitulo").textContent = titulo;
+      document.getElementById("modalMensaje").innerHTML = mensaje;
+      const modal = document.getElementById("modal");
+      modal.classList.remove("hidden");
+      modal.classList.add("flex");
+      accionModal = accionConfirmar;
+    }
+
+    document.getElementById("btnCancelar").addEventListener("click", () => {
+      const modal = document.getElementById("modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      accionModal = null;
+    });
+
+    document.getElementById("btnConfirmar").addEventListener("click", () => {
+      if (accionModal) accionModal();
+      const modal = document.getElementById("modal");
+      modal.classList.add("hidden");
+      modal.classList.remove("flex");
+      accionModal = null;
+    });
+
+    function editarProducto(codigo, nombre) {
+      const precio = parseFloat(document.getElementById(`precio_${codigo}`).value);
+      const cantidad = parseInt(document.getElementById(`cantidad_${codigo}`).value);
+
+      if (isNaN(precio) || isNaN(cantidad)) {
+        alert("⚠️ Ingresa datos válidos.");
+        return;
+      }
+
+      fetch("/guardar_producto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo, nombre, precio, cantidad })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("✅ Producto actualizado.");
+          cargarProductos();
+        } else {
+          alert("❌ No se pudo actualizar.");
+        }
+      });
+    }
+
+    function eliminarProducto(codigo) {
+      fetch("/eliminar_producto", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ codigo })
+      })
+      .then(res => res.json())
+      .then(data => {
+        if (data.success) {
+          alert("✅ Producto eliminado.");
+          cargarProductos();
+        } else {
+          alert("❌ No se pudo eliminar.");
+        }
+      });
+    }
+
+    document.getElementById("busquedaNombre").addEventListener("input", renderizarProductos);
+    document.getElementById("filtroEstado").addEventListener("change", renderizarProductos);
+
+    cargarProductos();
+    if (window.lucide) lucide.createIcons();
+  </script>
+</body>
+</html>
+
