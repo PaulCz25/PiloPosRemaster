@@ -8,11 +8,13 @@
   <style>
     body { font-family: 'Inter', sans-serif; }
     .card { background: white; border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,0.06); padding: 1.25rem; }
+    th.sortable { cursor: pointer; user-select: none; }
+    th.sortable:hover { background: rgba(14,116,144,.08); }
   </style>
 </head>
 <body class="bg-gray-100">
 
-  <!-- Navbar con iconos (estilo Almacén) -->
+  <!-- Navbar con iconos -->
   <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
     <a href="/" class="hover:underline flex items-center gap-2">
       <i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas
@@ -26,6 +28,9 @@
     <a href="/centavos" class="underline flex items-center gap-2">
       <i data-lucide="coins" class="w-4 h-4"></i> Centavos
     </a>
+    <a href="/proveedores" class="hover:underline flex items-center gap-2">
+      <i data-lucide="truck" class="w-4 h-4"></i> Proveedores
+    </a>
     <a href="/usuarios" class="hover:underline flex items-center gap-2">
       <i data-lucide="users" class="w-4 h-4"></i> Usuarios
     </a>
@@ -35,10 +40,13 @@
   </nav>
 
   <main class="max-w-6xl mx-auto py-10 px-6">
-    <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center">💰 Centavos redondeados</h1>
+    <!-- Título con icono de moneda translúcido -->
+    <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center flex items-center justify-center gap-2">
+      <i data-lucide="coins" class="w-8 h-8 text-cyan-700/70"></i> Centavos redondeados
+    </h1>
 
-    <!-- Tarjetas -->
-    <section class="grid md:grid-cols-4 gap-6 mb-8">
+    <!-- KPIs -->
+    <section class="grid md:grid-cols-4 gap-6 mb-6">
       <div class="card">
         <h2 class="text-sm text-gray-500 mb-1">Centavos acumulados</h2>
         <p id="totalCentavos" class="text-2xl font-bold text-cyan-700">$0.00</p>
@@ -57,54 +65,95 @@
       </div>
     </section>
 
+    <!-- Filtros -->
+    <div class="grid md:grid-cols-3 gap-4 mb-3">
+      <input type="date" id="fechaInicio" class="p-2 border rounded-xl shadow-sm" placeholder="Desde...">
+      <input type="date" id="fechaFin" class="p-2 border rounded-xl shadow-sm" placeholder="Hasta...">
+      <input id="buscar" type="text" placeholder="Buscar por producto..." class="border rounded-xl px-3 py-2 shadow-sm">
+    </div>
+
+    <div class="flex flex-wrap items-center gap-2 mb-8">
+      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="hoy">Hoy</button>
+      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="7">Últimos 7 días</button>
+      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="30">Últimos 30 días</button>
+      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="todo">Todo</button>
+      <div class="ml-auto flex gap-2">
+        <div id="resumenFiltro" class="text-sm text-gray-600 self-center">0 venta(s) en el rango</div>
+        <button id="btnExportCsv" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:brightness-105 flex items-center gap-2">
+          <i data-lucide="file-down" class="w-4 h-4"></i> Exportar CSV
+        </button>
+      </div>
+    </div>
+
     <!-- Tabla -->
     <div class="card overflow-x-auto">
       <div class="flex items-center justify-between mb-4">
-        <h3 class="text-xl font-bold text-cyan-700">🧾 Detalle de redondeos</h3>
-        <input id="buscar" type="text" placeholder="Buscar por producto..." class="border rounded-xl px-3 py-2 shadow-sm w-64">
+        <h3 class="text-xl font-bold text-cyan-700 flex items-center gap-2">
+          <i data-lucide="receipt-text" class="w-5 h-5"></i> Detalle de redondeos
+        </h3>
       </div>
       <table class="min-w-full text-sm">
         <thead class="bg-cyan-100 text-cyan-800">
           <tr>
-            <th class="px-4 py-2 text-left">Fecha</th>
+            <th class="px-4 py-2 text-left sortable" data-col="fecha">Fecha</th>
             <th class="px-4 py-2 text-left">Productos</th>
-            <th class="px-4 py-2 text-left">Total venta</th>
-            <th class="px-4 py-2 text-left">Centavos aportados</th>
+            <th class="px-4 py-2 text-left sortable" data-col="total">Total venta</th>
+            <th class="px-4 py-2 text-left sortable" data-col="redondeo">Centavos aportados</th>
           </tr>
         </thead>
         <tbody id="tablaCentavos" class="divide-y"></tbody>
       </table>
+      <div id="vacio" class="text-center text-gray-500 py-6 hidden">No hay registros para los filtros seleccionados.</div>
     </div>
   </main>
 
   <script>
     let ventasConRedondeo = [];
+    let listaFiltrada = [];
+    let sortState = { col: 'fecha', asc: false };
+
+    const toDate = (str) => new Date(str + 'T00:00:00');
+    const money = n => '$' + Number(n || 0).toFixed(2);
 
     async function cargar() {
       const res = await fetch('/api/historial');
       const historial = await res.json();
 
-      // Filtro: solo ventas con redondeo > 0
       ventasConRedondeo = historial
         .map(v => {
-          // Soporte retroactivo: si no existe "redondeo", lo calculamos
           const red = typeof v.redondeo === 'number' ? v.redondeo : 0;
           return { ...v, redondeo: Number(red) };
         })
         .filter(v => v.redondeo > 0);
 
       renderStats();
-      renderTabla(ventasConRedondeo);
+      setRangoRapido('7');
+      aplicarFiltros();
 
-      // búsqueda rápida
-      document.getElementById('buscar').addEventListener('input', (e) => {
-        const q = e.target.value.toLowerCase().trim();
-        if (!q) return renderTabla(ventasConRedondeo);
-        const filtradas = ventasConRedondeo.filter(v =>
-          (v.productos || []).some(p => (p.nombre || '').toLowerCase().includes(q))
-        );
-        renderTabla(filtradas);
+      document.getElementById('buscar').addEventListener('input', aplicarFiltros);
+      document.getElementById('fechaInicio').addEventListener('change', aplicarFiltros);
+      document.getElementById('fechaFin').addEventListener('change', aplicarFiltros);
+
+      document.querySelectorAll('[data-rango]').forEach(btn => {
+        btn.addEventListener('click', () => {
+          setRangoRapido(btn.dataset.rango);
+          aplicarFiltros();
+        });
       });
+
+      document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
+
+      document.querySelectorAll('th.sortable').forEach(th => {
+        th.addEventListener('click', () => {
+          const col = th.dataset.col;
+          const asc = !(sortState.col === col && sortState.asc === true);
+          sortState = { col, asc };
+          ordenar();
+          renderTabla(listaFiltrada);
+        });
+      });
+
+      if (window.lucide) lucide.createIcons();
     }
 
     function renderStats() {
@@ -113,10 +162,59 @@
       const promedio = n ? (totalCentavos / n) : 0;
       const ultimo = n ? ventasConRedondeo[ventasConRedondeo.length - 1].redondeo : 0;
 
-      document.getElementById('totalCentavos').textContent = `$${totalCentavos.toFixed(2)}`;
+      document.getElementById('totalCentavos').textContent = money(totalCentavos);
       document.getElementById('conteoVentas').textContent = n;
-      document.getElementById('promedio').textContent = `$${promedio.toFixed(2)}`;
-      document.getElementById('ultimo').textContent = `$${Number(ultimo).toFixed(2)}`;
+      document.getElementById('promedio').textContent = money(promedio);
+      document.getElementById('ultimo').textContent = money(ultimo);
+    }
+
+    function aplicarFiltros() {
+      const q = (document.getElementById('buscar').value || '').toLowerCase().trim();
+      const fi = document.getElementById('fechaInicio').value;
+      const ff = document.getElementById('fechaFin').value;
+
+      listaFiltrada = ventasConRedondeo.filter(v => {
+        const coincideTexto = !q || (v.productos || []).some(p => (p.nombre || '').toLowerCase().includes(q));
+        if (!coincideTexto) return false;
+
+        const d = toDate(v.fecha);
+        if (fi && d < toDate(fi)) return false;
+        if (ff && d > toDate(ff)) return false;
+
+        return true;
+      });
+
+      ordenar();
+      renderTabla(listaFiltrada);
+
+      const totalRango = listaFiltrada.reduce((acc, v) => acc + (v.redondeo || 0), 0);
+      document.getElementById('resumenFiltro').textContent =
+        `${listaFiltrada.length} venta(s) · ${money(totalRango)} en centavos`;
+      document.getElementById('vacio').classList.toggle('hidden', listaFiltrada.length > 0);
+    }
+
+    function setRangoRapido(tipo) {
+      const hoy = new Date();
+      const yyyy = hoy.getFullYear();
+      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
+      const dd = String(hoy.getDate()).padStart(2, '0');
+      const hoyStr = `${yyyy}-${mm}-${dd}`;
+
+      let inicio = '';
+      if (tipo === 'hoy') {
+        inicio = hoyStr;
+      } else if (tipo === '7') {
+        const d = new Date(hoy); d.setDate(d.getDate() - 6);
+        inicio = d.toISOString().slice(0,10);
+      } else if (tipo === '30') {
+        const d = new Date(hoy); d.setDate(d.getDate() - 29);
+        inicio = d.toISOString().slice(0,10);
+      } else {
+        inicio = '';
+      }
+
+      document.getElementById('fechaInicio').value = inicio;
+      document.getElementById('fechaFin').value = (tipo === 'todo') ? '' : hoyStr;
     }
 
     function renderTabla(lista) {
@@ -139,8 +237,45 @@
       });
     }
 
+    function ordenar() {
+      const { col, asc } = sortState;
+      listaFiltrada.sort((a, b) => {
+        let va, vb;
+        if (col === 'fecha') {
+          va = toDate(a.fecha).getTime();
+          vb = toDate(b.fecha).getTime();
+        } else {
+          va = Number(a[col] || 0);
+          vb = Number(b[col] || 0);
+        }
+        return asc ? (va - vb) : (vb - va);
+      });
+    }
+
+    function exportCsv() {
+      const rows = [['Fecha','Hora','Productos','Total','Redondeo']];
+      listaFiltrada.forEach(v => {
+        const productosTxt = (v.productos || []).map(p => `${p.nombre} x${p.cantidad}`).join('; ');
+        rows.push([
+          v.fecha,
+          v.hora || '',
+          productosTxt,
+          Number(v.total || 0).toFixed(2),
+          Number(v.redondeo || 0).toFixed(2)
+        ]);
+      });
+      const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+      const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      const hoy = new Date().toISOString().slice(0,10);
+      a.download = `centavos_${hoy}.csv`;
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
     cargar();
-    // Renderizar iconos del navbar
     if (window.lucide) lucide.createIcons();
   </script>
 </body>
