@@ -34,11 +34,9 @@
     <a href="/centavos" class="hover:underline flex items-center gap-2">
       <i data-lucide="coins" class="w-4 h-4"></i> Centavos
     </a>
-    <!-- ⬇️ NUEVO: enlace visible a Proveedores -->
     <a href="/proveedores" class="hover:underline flex items-center gap-2">
       <i data-lucide="truck" class="w-4 h-4"></i> Proveedores
     </a>
-    <!-- ⬆️ SOLO esto se agregó -->
     <a href="/usuarios" class="hover:underline flex items-center gap-2">
       <i data-lucide="users" class="w-4 h-4"></i> Usuarios
     </a>
@@ -132,24 +130,35 @@
     let chartRef = null;
     let sortState = { col: 'fecha', asc: false };
 
-    const toDate = (str) => new Date(str + 'T00:00:00');
+    // ==== Helpers de fecha 100% locales (sin UTC) ====
+    const fmtLocal = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    };
+    const toDate = (str) => {
+      const s = String(str || '').split(' ')[0]; // toma solo 'YYYY-MM-DD'
+      const [y, m, d] = s.split('-').map(n => parseInt(n, 10));
+      return new Date(y, (m || 1) - 1, d || 1); // fecha local
+    };
     const fmtMoney = n => '$' + Number(n || 0).toFixed(2);
 
     async function cargarHistorial() {
       const res = await fetch('/api/historial');
       ventasRaw = await res.json();
-      const hoy = new Date();
-      const hoyStr = hoy.toLocaleDateString('es-ES');
-      let totalHoy = 0;
-      ventasRaw.forEach(v => {
-        const fechaVentaObj = toDate(v.fecha);
-        if (fechaVentaObj.toLocaleDateString('es-ES') === hoyStr) {
-          totalHoy += (v.total ?? 0);
-        }
-      });
+
+      // Ingresos de HOY comparando string YYYY-MM-DD local
+      const hoyStr = fmtLocal(new Date());
+      const totalHoy = ventasRaw.reduce((acc, v) => {
+        return acc + (String(v.fecha) === hoyStr ? (v.total || 0) : 0);
+      }, 0);
       document.getElementById("ingresosHoy").textContent = fmtMoney(totalHoy);
-      setRangoRapido('7');
+
+      // Arranca mostrando HOY
+      setRangoRapido('hoy');
       aplicarFiltros();
+
       if (window.lucide) lucide.createIcons();
     }
 
@@ -157,25 +166,30 @@
       const q = (document.getElementById('busqueda').value || '').toLowerCase().trim();
       const fi = document.getElementById('fechaInicio').value;
       const ff = document.getElementById('fechaFin').value;
+
       ventasFiltradas = ventasRaw.filter(v => {
         const coincideTexto = !q || (v.productos || []).some(p => (p.nombre || '').toLowerCase().includes(q));
         if (!coincideTexto) return false;
+
         const d = toDate(v.fecha);
         if (fi && d < toDate(fi)) return false;
         if (ff && d > toDate(ff)) return false;
         return true;
       });
+
       const totalRango = ventasFiltradas.reduce((acc, v) => acc + (v.total || 0), 0);
       const redondeoRango = ventasFiltradas.reduce((acc, v) => acc + (v.redondeo || 0), 0);
       document.getElementById('ingresosRango').textContent = fmtMoney(totalRango);
       document.getElementById('redondeoRango').textContent = fmtMoney(redondeoRango);
       document.getElementById('resumenFiltrado').textContent = `${ventasFiltradas.length} venta(s)`;
+
       const conteo = {};
       ventasFiltradas.forEach(v => (v.productos || []).forEach(p => {
         conteo[p.nombre] = (conteo[p.nombre] || 0) + (p.cantidad || 0);
       }));
       const masVendido = Object.entries(conteo).sort((a,b) => b[1] - a[1])[0];
       document.getElementById('productoMasVendido').textContent = masVendido ? `${masVendido[0]} x${masVendido[1]}` : '—';
+
       ordenar(sortState.col, sortState.asc, false);
       renderTabla();
       renderGrafica();
@@ -184,22 +198,21 @@
 
     function setRangoRapido(tipo) {
       const hoy = new Date();
-      const yyyy = hoy.getFullYear();
-      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-      const dd = String(hoy.getDate()).padStart(2, '0');
-      const hoyStr = `${yyyy}-${mm}-${dd}`;
+      const hoyStr = fmtLocal(hoy);
       let inicio = '';
+
       if (tipo === 'hoy') {
         inicio = hoyStr;
       } else if (tipo === '7') {
-        const d = new Date(hoy); d.setDate(d.getDate() - 6);
-        inicio = d.toISOString().slice(0,10);
+        const d = new Date(hoy); d.setDate(d.getDate() - 6); // incluye hoy
+        inicio = fmtLocal(d);
       } else if (tipo === '30') {
-        const d = new Date(hoy); d.setDate(d.getDate() - 29);
-        inicio = d.toISOString().slice(0,10);
+        const d = new Date(hoy); d.setDate(d.getDate() - 29); // incluye hoy
+        inicio = fmtLocal(d);
       } else {
         inicio = '';
       }
+
       document.getElementById('fechaInicio').value = inicio;
       document.getElementById('fechaFin').value = (tipo === 'todo') ? '' : hoyStr;
     }
@@ -240,12 +253,13 @@
     function renderGrafica() {
       const ingresosPorDia = {};
       ventasFiltradas.forEach(v => {
-        const d = toDate(v.fecha);
+        const d = toDate(v.fecha); // local seguro
         const key = d.toLocaleDateString('es-ES', { weekday: 'long' });
         ingresosPorDia[key] = (ingresosPorDia[key] || 0) + (v.total || 0);
       });
       const labels = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
       const valores = labels.map(dia => ingresosPorDia[dia] || 0);
+
       const ctx = document.getElementById('graficaIngresos').getContext('2d');
       if (chartRef) chartRef.destroy();
       chartRef = new Chart(ctx, {
@@ -284,7 +298,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const hoy = new Date().toISOString().slice(0,10);
+      const hoy = fmtLocal(new Date());
       a.download = `historial_${hoy}.csv`;
       a.click();
       URL.revokeObjectURL(url);
@@ -295,7 +309,7 @@
       const url = chartRef.toBase64Image('image/png', 1);
       const a = document.createElement('a');
       a.href = url;
-      const hoy = new Date().toISOString().slice(0,10);
+      const hoy = fmtLocal(new Date());
       a.download = `ingresos_${hoy}.png`;
       a.click();
     }
@@ -324,4 +338,3 @@
   </script>
 </body>
 </html>
-

@@ -40,7 +40,6 @@
   </nav>
 
   <main class="max-w-6xl mx-auto py-10 px-6">
-    <!-- Título con icono de moneda translúcido -->
     <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center flex items-center justify-center gap-2">
       <i data-lucide="coins" class="w-8 h-8 text-cyan-700/70"></i> Centavos redondeados
     </h1>
@@ -112,7 +111,18 @@
     let listaFiltrada = [];
     let sortState = { col: 'fecha', asc: false };
 
-    const toDate = (str) => new Date(str + 'T00:00:00');
+    // ==== Helpers de fecha 100% locales (sin UTC) ====
+    const fmtLocal = (d) => {
+      const y = d.getFullYear();
+      const m = String(d.getMonth() + 1).padStart(2, '0');
+      const dd = String(d.getDate()).padStart(2, '0');
+      return `${y}-${m}-${dd}`;
+    };
+    const toDate = (str) => {
+      const s = String(str || '').split(' ')[0];
+      const [y, m, d] = s.split('-').map(n => parseInt(n, 10));
+      return new Date(y, (m || 1) - 1, d || 1);
+    };
     const money = n => '$' + Number(n || 0).toFixed(2);
 
     async function cargar() {
@@ -120,14 +130,13 @@
       const historial = await res.json();
 
       ventasConRedondeo = historial
-        .map(v => {
-          const red = typeof v.redondeo === 'number' ? v.redondeo : 0;
-          return { ...v, redondeo: Number(red) };
-        })
+        .map(v => ({ ...v, redondeo: Number(typeof v.redondeo === 'number' ? v.redondeo : 0) }))
         .filter(v => v.redondeo > 0);
 
       renderStats();
-      setRangoRapido('7');
+
+      // Arranca mostrando HOY
+      setRangoRapido('hoy');
       aplicarFiltros();
 
       document.getElementById('buscar').addEventListener('input', aplicarFiltros);
@@ -195,20 +204,17 @@
 
     function setRangoRapido(tipo) {
       const hoy = new Date();
-      const yyyy = hoy.getFullYear();
-      const mm = String(hoy.getMonth() + 1).padStart(2, '0');
-      const dd = String(hoy.getDate()).padStart(2, '0');
-      const hoyStr = `${yyyy}-${mm}-${dd}`;
-
+      const hoyStr = fmtLocal(hoy);
       let inicio = '';
+
       if (tipo === 'hoy') {
         inicio = hoyStr;
       } else if (tipo === '7') {
         const d = new Date(hoy); d.setDate(d.getDate() - 6);
-        inicio = d.toISOString().slice(0,10);
+        inicio = fmtLocal(d);
       } else if (tipo === '30') {
         const d = new Date(hoy); d.setDate(d.getDate() - 29);
-        inicio = d.toISOString().slice(0,10);
+        inicio = fmtLocal(d);
       } else {
         inicio = '';
       }
@@ -269,7 +275,7 @@
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const hoy = new Date().toISOString().slice(0,10);
+      const hoy = fmtLocal(new Date());
       a.download = `centavos_${hoy}.csv`;
       a.click();
       URL.revokeObjectURL(url);
