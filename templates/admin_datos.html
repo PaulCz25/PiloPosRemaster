@@ -51,7 +51,7 @@
     </div>
   </div>
 
-  <!-- Barra de filtros (uniforme y funcional) -->
+  <!-- Barra de filtros -->
   <div class="filters-sticky">
     <div class="max-w-5xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="flex items-stretch w-full md:w-1/2">
@@ -84,11 +84,11 @@
       <table class="w-full text-sm table-fixed">
         <colgroup>
           <col class="w-[9rem]">
-          <col class="w-28">
-          <col class="w-[5.5rem]">
+          <col class="w-36">          <!-- Fecha: más ancho -->
+          <col class="w-28">          <!-- Hora: más ancho -->
           <col class="w-28">
           <col class="w-24">
-          <col class="w-[5.5rem]">
+          <col class="w-28">
           <col class="w-[24rem]">
         </colgroup>
         <thead>
@@ -148,8 +148,8 @@
         const tr = document.createElement('tr');
         tr.innerHTML = `
           <td class="px-4 py-3 font-mono text-xs">${v.id}</td>
-          <td class="px-4 py-3"><input class="input h-10 w-28" type="date" value="${v.fecha || ''}" id="f_${v.id}"></td>
-          <td class="px-4 py-3"><input class="input h-10 w-[5.5rem]" type="time" value="${v.hora || ''}" id="h_${v.id}"></td>
+          <td class="px-4 py-3"><input class="input h-10 w-36" type="date" value="${v.fecha || ''}" id="f_${v.id}"></td>
+          <td class="px-4 py-3"><input class="input h-10 w-28" type="time" value="${v.hora || ''}" id="h_${v.id}"></td>
           <td class="px-4 py-3">${v.productos}</td>
           <td class="px-4 py-3">
             <div class="relative">
@@ -157,7 +157,7 @@
               <span class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
             </div>
           </td>
-          <td class="px-4 py-3"><input class="input h-10 w-[5.5rem] text-right" type="number" step="0.01" value="${(v.redondeo||0).toFixed(2)}" id="r_${v.id}"></td>
+          <td class="px-4 py-3"><input class="input h-10 w-28 text-right" type="number" step="0.01" value="${(v.redondeo||0).toFixed(2)}" id="r_${v.id}"></td>
           <td class="px-4 py-3">
             <div class="flex items-center gap-2 whitespace-nowrap">
               <button type="button" class="btn btn-warn h-10" onclick="guardar('${v.id}')"><i data-lucide="save"></i> Guardar</button>

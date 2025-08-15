@@ -2,6 +2,11 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import json
 import os
 from datetime import datetime
+from zoneinfo import ZoneInfo  # ← zona horaria real
+
+# Zona horaria por defecto: Baja California (Tijuana).
+# Puedes sobreescribirla en Render con la env var APP_TZ
+LOCAL_TZ = ZoneInfo(os.getenv("APP_TZ", "America/Tijuana"))
 
 # Adaptadores SQLite
 from store import (
@@ -150,9 +155,11 @@ def redondear():
         else:
             resumen[nombre] = {'nombre': nombre, 'cantidad': 1}
 
-    fecha_str = datetime.now().strftime('%Y-%m-%d')
-    hora_str = datetime.now().strftime('%H:%M')
-    venta_id = datetime.now().strftime('V%Y%m%d%H%M%S%f')
+    # ===> FECHA/HORA con zona local (Tijuana) <===
+    ahora = datetime.now(LOCAL_TZ)
+    fecha_str = ahora.strftime('%Y-%m-%d')
+    hora_str = ahora.strftime('%H:%M')
+    venta_id = ahora.strftime('V%Y%m%d%H%M%S%f')
 
     try:
         with get_db() as conn:
@@ -517,7 +524,6 @@ def ticket(vid):
 # ===================== PANEL DE DATOS (ADMIN) =====================
 @app.route('/panel')
 def panel():
-    # Renderiza tu template existente
     return render_template('admin_datos.html')
 
 
