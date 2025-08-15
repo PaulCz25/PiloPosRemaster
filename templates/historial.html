@@ -20,29 +20,15 @@
 </head>
 <body class="bg-gray-100">
 
-  <!-- Navbar con iconos -->
+  <!-- Navbar -->
   <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
-    <a href="/" class="hover:underline flex items-center gap-2">
-      <i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas
-    </a>
-    <a href="/almacen" class="hover:underline flex items-center gap-2">
-      <i data-lucide="box" class="w-4 h-4"></i> Almacén
-    </a>
-    <a href="/historial" class="underline flex items-center gap-2">
-      <i data-lucide="bar-chart" class="w-4 h-4"></i> Historial
-    </a>
-    <a href="/centavos" class="hover:underline flex items-center gap-2">
-      <i data-lucide="coins" class="w-4 h-4"></i> Centavos
-    </a>
-    <a href="/proveedores" class="hover:underline flex items-center gap-2">
-      <i data-lucide="truck" class="w-4 h-4"></i> Proveedores
-    </a>
-    <a href="/usuarios" class="hover:underline flex items-center gap-2">
-      <i data-lucide="users" class="w-4 h-4"></i> Usuarios
-    </a>
-    <a href="/login" class="hover:underline flex items-center gap-2">
-      <i data-lucide="lock" class="w-4 h-4"></i> Login
-    </a>
+    <a href="/" class="hover:underline flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+    <a href="/almacen" class="hover:underline flex items-center gap-2"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+    <a href="/historial" class="underline flex items-center gap-2"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+    <a href="/centavos" class="hover:underline flex items-center gap-2"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
+    <a href="/proveedores" class="hover:underline flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
+    <a href="/usuarios" class="hover:underline flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
+    <a href="/login" class="hover:underline flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
   </nav>
 
   <main class="max-w-7xl mx-auto py-10 px-6">
@@ -125,37 +111,35 @@
   </main>
 
   <script>
+    // Utilidades de fecha sin zona horaria
+    const isoToday = () => {
+      const d = new Date();
+      const yyyy = d.getFullYear();
+      const mm = String(d.getMonth()+1).padStart(2,'0');
+      const dd = String(d.getDate()).padStart(2,'0');
+      return `${yyyy}-${mm}-${dd}`;
+    };
+    const dkey = s => (s || '').slice(0,10); // 'YYYY-MM-DD' desde API
+
     let ventasRaw = [];
     let ventasFiltradas = [];
     let chartRef = null;
     let sortState = { col: 'fecha', asc: false };
 
-    // ==== Helpers de fecha 100% locales (sin UTC) ====
-    const fmtLocal = (d) => {
-      const y = d.getFullYear();
-      const m = String(d.getMonth() + 1).padStart(2, '0');
-      const dd = String(d.getDate()).padStart(2, '0');
-      return `${y}-${m}-${dd}`;
-    };
-    const toDate = (str) => {
-      const s = String(str || '').split(' ')[0]; // toma solo 'YYYY-MM-DD'
-      const [y, m, d] = s.split('-').map(n => parseInt(n, 10));
-      return new Date(y, (m || 1) - 1, d || 1); // fecha local
-    };
     const fmtMoney = n => '$' + Number(n || 0).toFixed(2);
 
     async function cargarHistorial() {
-      const res = await fetch('/api/historial');
+      const res = await fetch('/api/historial', { cache: 'no-store' });
       ventasRaw = await res.json();
 
-      // Ingresos de HOY comparando string YYYY-MM-DD local
-      const hoyStr = fmtLocal(new Date());
-      const totalHoy = ventasRaw.reduce((acc, v) => {
-        return acc + (String(v.fecha) === hoyStr ? (v.total || 0) : 0);
-      }, 0);
+      // KPI de hoy por comparación de strings ISO
+      const hoyISO = isoToday();
+      const totalHoy = ventasRaw
+        .filter(v => dkey(v.fecha) === hoyISO)
+        .reduce((acc, v) => acc + (v.total || 0), 0);
       document.getElementById("ingresosHoy").textContent = fmtMoney(totalHoy);
 
-      // Arranca mostrando HOY
+      // Por defecto: HOY
       setRangoRapido('hoy');
       aplicarFiltros();
 
@@ -164,16 +148,16 @@
 
     function aplicarFiltros() {
       const q = (document.getElementById('busqueda').value || '').toLowerCase().trim();
-      const fi = document.getElementById('fechaInicio').value;
-      const ff = document.getElementById('fechaFin').value;
+      const fi = document.getElementById('fechaInicio').value; // ISO
+      const ff = document.getElementById('fechaFin').value;    // ISO
 
       ventasFiltradas = ventasRaw.filter(v => {
         const coincideTexto = !q || (v.productos || []).some(p => (p.nombre || '').toLowerCase().includes(q));
         if (!coincideTexto) return false;
 
-        const d = toDate(v.fecha);
-        if (fi && d < toDate(fi)) return false;
-        if (ff && d > toDate(ff)) return false;
+        const f = dkey(v.fecha);
+        if (fi && f < fi) return false;
+        if (ff && f > ff) return false;
         return true;
       });
 
@@ -197,24 +181,21 @@
     }
 
     function setRangoRapido(tipo) {
-      const hoy = new Date();
-      const hoyStr = fmtLocal(hoy);
+      const hoy = isoToday();
       let inicio = '';
-
       if (tipo === 'hoy') {
-        inicio = hoyStr;
+        inicio = hoy;
       } else if (tipo === '7') {
-        const d = new Date(hoy); d.setDate(d.getDate() - 6); // incluye hoy
-        inicio = fmtLocal(d);
+        const d = new Date(hoy + 'T00:00:00'); d.setDate(d.getDate() - 6);
+        inicio = d.toISOString().slice(0,10);
       } else if (tipo === '30') {
-        const d = new Date(hoy); d.setDate(d.getDate() - 29); // incluye hoy
-        inicio = fmtLocal(d);
+        const d = new Date(hoy + 'T00:00:00'); d.setDate(d.getDate() - 29);
+        inicio = d.toISOString().slice(0,10);
       } else {
         inicio = '';
       }
-
       document.getElementById('fechaInicio').value = inicio;
-      document.getElementById('fechaFin').value = (tipo === 'todo') ? '' : hoyStr;
+      document.getElementById('fechaFin').value = (tipo === 'todo') ? '' : hoy;
     }
 
     function renderTabla() {
@@ -239,26 +220,28 @@
       ventasFiltradas.sort((a,b) => {
         let va, vb;
         if (col === 'fecha') {
-          va = toDate(a.fecha).getTime();
-          vb = toDate(b.fecha).getTime();
+          va = dkey(a.fecha);
+          vb = dkey(b.fecha);
         } else {
           va = Number(a[col] || 0);
           vb = Number(b[col] || 0);
         }
-        return asc ? (va - vb) : (vb - va);
+        return asc ? (va > vb ? 1 : va < vb ? -1 : 0) : (va < vb ? 1 : va > vb ? -1 : 0);
       });
       if (rerender) renderTabla();
     }
 
     function renderGrafica() {
-      const ingresosPorDia = {};
+      // Agrupar por día de la semana
+      const totales = [0,0,0,0,0,0,0]; // 0=Dom ... 6=Sáb
       ventasFiltradas.forEach(v => {
-        const d = toDate(v.fecha); // local seguro
-        const key = d.toLocaleDateString('es-ES', { weekday: 'long' });
-        ingresosPorDia[key] = (ingresosPorDia[key] || 0) + (v.total || 0);
+        const d = new Date(dkey(v.fecha) + 'T00:00:00');
+        const dow = d.getDay();
+        totales[dow] += (v.total || 0);
       });
+      // Reordenar a Lun..Dom
       const labels = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
-      const valores = labels.map(dia => ingresosPorDia[dia] || 0);
+      const valores = [totales[1], totales[2], totales[3], totales[4], totales[5], totales[6], totales[0]];
 
       const ctx = document.getElementById('graficaIngresos').getContext('2d');
       if (chartRef) chartRef.destroy();
@@ -286,20 +269,17 @@
     }
 
     function exportCsv() {
-      const rows = [
-        ['Fecha','Hora','Productos','Total','Redondeo']
-      ];
+      const rows = [['Fecha','Hora','Productos','Total','Redondeo']];
       ventasFiltradas.forEach(v => {
         const productosTxt = (v.productos || []).map(p => `${p.nombre} x${p.cantidad}`).join('; ');
-        rows.push([v.fecha, v.hora || '', productosTxt, Number(v.total||0).toFixed(2), Number(v.redondeo||0).toFixed(2)]);
+        rows.push([dkey(v.fecha), v.hora || '', productosTxt, Number(v.total||0).toFixed(2), Number(v.redondeo||0).toFixed(2)]);
       });
       const csv = rows.map(r => r.map(c => `"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      const hoy = fmtLocal(new Date());
-      a.download = `historial_${hoy}.csv`;
+      a.download = `historial_${isoToday()}.csv`;
       a.click();
       URL.revokeObjectURL(url);
     }
@@ -309,19 +289,16 @@
       const url = chartRef.toBase64Image('image/png', 1);
       const a = document.createElement('a');
       a.href = url;
-      const hoy = fmtLocal(new Date());
-      a.download = `ingresos_${hoy}.png`;
+      a.download = `ingresos_${isoToday()}.png`;
       a.click();
     }
 
+    // Listeners
     document.getElementById('busqueda').addEventListener('input', aplicarFiltros);
     document.getElementById('fechaInicio').addEventListener('change', aplicarFiltros);
     document.getElementById('fechaFin').addEventListener('change', aplicarFiltros);
     document.querySelectorAll('[data-rango]').forEach(btn => {
-      btn.addEventListener('click', () => {
-        setRangoRapido(btn.dataset.rango);
-        aplicarFiltros();
-      });
+      btn.addEventListener('click', () => { setRangoRapido(btn.dataset.rango); aplicarFiltros(); });
     });
     document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
     document.getElementById('btnDescargarGrafica').addEventListener('click', descargarGrafica);
