@@ -139,6 +139,27 @@ def agregar_producto():
         return redirect(url_for('almacen', codigo=codigo))
 
 
+# ====== NUEVO: Agregar productos manuales al carrito ======
+@app.post('/carrito/agregar_manual')
+def carrito_agregar_manual():
+    data = request.get_json(silent=True) or {}
+    nombre = (data.get('nombre') or '').strip()
+    try:
+        precio = float(data.get('precio'))
+    except (TypeError, ValueError):
+        precio = None
+
+    if not nombre or precio is None or precio < 0:
+        return jsonify({'ok': False, 'error': 'Datos inválidos'}), 400
+
+    carrito = session.get('carrito', [])
+    carrito.append({'nombre': nombre, 'precio': float(precio)})
+    session['carrito'] = carrito
+    nuevo_total = sum(item.get('precio', 0) for item in carrito)
+
+    return jsonify({'ok': True, 'total': round(nuevo_total, 2), 'count': len(carrito)})
+
+
 @app.route('/redondear', methods=['POST'])
 def redondear():
     aceptado = request.form.get('aceptado')
@@ -147,15 +168,17 @@ def redondear():
     redondeo = round(total + 0.5) - total if aceptado == 'si' else 0
     total_final = round(total + 0.5) if aceptado == 'si' else total
 
+    # Agrupa por nombre y guarda también el precio capturado (para manuales)
     resumen = {}
     for item in carrito:
-        nombre = item['nombre']
+        nombre = item.get('nombre')
+        precio_item = float(item.get('precio') or 0)
         if nombre in resumen:
             resumen[nombre]['cantidad'] += 1
         else:
-            resumen[nombre] = {'nombre': nombre, 'cantidad': 1}
+            resumen[nombre] = {'nombre': nombre, 'cantidad': 1, 'precio': precio_item}
 
-    # ===> FECHA/HORA con zona local (Tijuana) <===
+    # Fecha/hora con TZ local (Tijuana)
     ahora = datetime.now(LOCAL_TZ)
     fecha_str = ahora.strftime('%Y-%m-%d')
     hora_str = ahora.strftime('%H:%M')
@@ -174,27 +197,36 @@ def redondear():
             for nombre, info in resumen.items():
                 cantidad = int(info['cantidad'])
 
+                # ¿Existe en productos? → usar su id/precio.
                 prow = conn.execute(
                     'SELECT id, precio FROM productos WHERE nombre=? LIMIT 1',
                     (nombre,)
                 ).fetchone()
-                pid = prow['id'] if prow else ''
-                pu = float(prow['precio']) if prow else 0.0
+
+                if prow:
+                    pid = prow['id']
+                    pu = float(prow['precio'] or 0.0)
+                    tiene_db = True
+                else:
+                    # ---- NUEVO: crear un producto "manual" para respetar FK ----
+                    pu = float(info.get('precio', 0.0))
+                    pid = ahora.strftime('M%Y%m%d%H%M%S%f')  # id único
+                    conn.execute(
+                        'INSERT INTO productos (id, nombre, precio, stock, categoria) VALUES (?,?,?,?,?)',
+                        (pid, nombre, pu, 0, 'MANUAL')
+                    )
+                    tiene_db = False  # no tocar stock aunque exista la fila
 
                 conn.execute(
                     'INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
                     (venta_id, pid, cantidad, pu)
                 )
 
-                if pid:
+                # Si es un producto real del almacén, baja stock.
+                if tiene_db:
                     conn.execute(
                         'UPDATE productos SET stock = MAX(0, stock - ?) WHERE id = ?',
                         (cantidad, pid)
-                    )
-                else:
-                    conn.execute(
-                        'UPDATE productos SET stock = MAX(0, stock - ?) WHERE nombre = ?',
-                        (cantidad, nombre)
                     )
 
             conn.execute('COMMIT')
@@ -456,7 +488,6 @@ def eliminar_proveedor():
 # ===================== Ruta de ticket =====================
 @app.route('/ticket/<vid>')
 def ticket(vid):
-    # Ajusta estos datos a tu negocio
     negocio = {
         "nombre": "PilotoPOS",
         "direccion": "Mi calle #123, Ciudad",

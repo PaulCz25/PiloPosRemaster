@@ -51,8 +51,6 @@
 
   <!-- Sidebar -->
   <aside class="w-64 bg-gradient-to-b from-cyan-700 to-cyan-500 text-white flex flex-col py-8 px-6 shadow-2xl rounded-r-3xl">
-    
-    <!-- Logo + Marca -->
     <div class="flex flex-col items-center mb-12">
       <img src="/static/logo-piloto.png" alt="PilotoPOS" class="h-28 md:h-32 w-auto mb-4 drop-shadow-lg" />
       <span class="text-xl font-bold tracking-wide text-white/95">PilotoPOS</span>
@@ -75,7 +73,6 @@
       <a href="/proveedores" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
         <i data-lucide="truck" class="w-5 h-5"></i> Proveedores
       </a>
-      <!-- Acceso al Panel de datos -->
       <a href="/panel" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
         <i data-lucide="database" class="w-5 h-5"></i> Panel de datos
       </a>
@@ -100,13 +97,22 @@
         Punto de Venta
       </h2>
 
-      <!-- Captura de código -->
+      <!-- Captura de código + Agregar manual -->
       <form method="POST" action="/agregar-producto" class="mb-6">
         <label for="codigo" class="block text-gray-800 font-semibold mb-2">Escanea o ingresa el código:</label>
         <div class="flex gap-3">
           <input type="text" id="codigo" name="codigo" required autofocus
                  class="input flex-1" placeholder="Ej: QR123, AZT55, 1234">
           <button type="submit" class="btn btn-primary px-6 py-3">Agregar</button>
+
+          <!-- Botón Agregar manual -->
+          <button type="button"
+                  class="btn px-6 py-3 bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50"
+                  onclick="abrirManual()"
+                  title="Agregar producto manual">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span class="ml-2">Agregar manual</span>
+          </button>
         </div>
       </form>
 
@@ -228,6 +234,33 @@
       {% endif %}
     </div>
 
+    <!-- Modal: Agregar manual -->
+    <div id="modalManual" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+      <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
+        <h3 class="text-xl font-bold text-cyan-700 mb-4 flex items-center gap-2">
+          <i data-lucide="plus" class="w-5 h-5"></i> Agregar producto manual
+        </h3>
+        <div class="space-y-3">
+          <div>
+            <label class="text-sm font-medium text-gray-700">Nombre</label>
+            <input id="manNombre" type="text" class="input mt-1" placeholder="Ej: Queso 1kg">
+          </div>
+          <div>
+            <label class="text-sm font-medium text-gray-700">Precio</label>
+            <input id="manPrecio" type="number" step="0.01" min="0" class="input mt-1" placeholder="100.00">
+          </div>
+        </div>
+        <div class="mt-5 flex gap-2 justify-end">
+          <button type="button" class="btn px-4 py-2 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" onclick="cerrarManual()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary px-4 py-2" onclick="agregarManual()">
+            Añadir
+          </button>
+        </div>
+      </div>
+    </div>
+
     <script>
       function mostrarRedondeo() {
         document.getElementById("redondeoArea").classList.remove("hidden");
@@ -297,7 +330,7 @@
       }
 
       async function quitarItem(idx){
-        idx = Number(idx); // ← asegura número si vino como string del onclick
+        idx = Number(idx);
         try {
           const resp = await fetch('/carrito/eliminar', {
             method: 'POST',
@@ -323,18 +356,84 @@
           totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
           document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
 
-          var bp = document.getElementById("bloquePago");
-          if (bp) bp.classList.add("hidden");
-          var rc = document.getElementById("resultadoCambio");
-          if (rc) rc.classList.add("hidden");
-          var fc = document.getElementById("finalizarCompra");
-          if (fc) fc.classList.add("hidden");
+          document.getElementById("bloquePago")?.classList.add("hidden");
+          document.getElementById("resultadoCambio")?.classList.add("hidden");
+          document.getElementById("finalizarCompra")?.classList.add("hidden");
           if ((data.count || 0) === 0) {
-            var ra = document.getElementById("redondeoArea");
-            if (ra) ra.classList.add("hidden");
+            document.getElementById("redondeoArea")?.classList.add("hidden");
           }
         } catch (e) {
           console.error(e);
+        }
+      }
+
+      // -------- Agregar manual ----------
+      function abrirManual(){
+        const m = document.getElementById('modalManual');
+        document.getElementById('manNombre').value = '';
+        document.getElementById('manPrecio').value = '';
+        m.classList.remove('hidden'); m.classList.add('flex');
+      }
+      function cerrarManual(){
+        const m = document.getElementById('modalManual');
+        m.classList.add('hidden'); m.classList.remove('flex');
+      }
+
+      async function agregarManual(){
+        const nombre = (document.getElementById('manNombre').value || '').trim();
+        const precio = Number(document.getElementById('manPrecio').value);
+
+        if (!nombre) { alert('Escribe un nombre.'); return; }
+        if (!isFinite(precio) || precio < 0) { alert('Precio inválido.'); return; }
+
+        try {
+          const resp = await fetch('/carrito/agregar_manual', {
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
+            body: JSON.stringify({ nombre, precio })
+          });
+          const data = await resp.json();
+          if (!resp.ok || !data.ok) { alert('No se pudo agregar.'); return; }
+
+          // Si no hay bloque de carrito (estaba vacío), recarga para mostrarlo
+          const ul = document.getElementById('listaCarrito');
+          if (!ul) { window.location.reload(); return; }
+
+          const idx = ul.querySelectorAll('li').length;
+          const li = document.createElement('li');
+          li.className = 'py-3 flex items-center justify-between';
+          li.setAttribute('data-index', idx);
+          li.innerHTML = `
+            <div class="flex items-center gap-3">
+              <span class="text-gray-800"></span>
+            </div>
+            <div class="flex items-center gap-4">
+              <div class="text-gray-900 font-semibold"></div>
+              <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito" onclick="quitarItem(${idx})">
+                <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
+              </button>
+            </div>
+          `;
+          li.querySelector('span.text-gray-800').textContent = nombre;
+          li.querySelector('div.text-gray-900').textContent = '$' + Number(precio).toFixed(2);
+          ul.appendChild(li);
+
+          totalVenta = Number(data.total) || 0;
+          const yesBtn = document.getElementById('btnYes');
+          const siActivo = yesBtn ? yesBtn.classList.contains('active') : false;
+          totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
+          document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
+
+          document.getElementById("redondeoArea")?.classList.add("hidden");
+          document.getElementById("bloquePago")?.classList.add("hidden");
+          document.getElementById("resultadoCambio")?.classList.add("hidden");
+          document.getElementById("finalizarCompra")?.classList.add("hidden");
+
+          cerrarManual();
+          if (window.lucide) lucide.createIcons();
+        } catch (e) {
+          console.error(e);
+          alert('Error de red al agregar.');
         }
       }
 
