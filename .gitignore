@@ -1,0 +1,8 @@
+﻿venv/
+__pycache__/
+.vscode/
+*.db
+*.db-shm
+*.db-wal
+historial.json
+static/productos.json

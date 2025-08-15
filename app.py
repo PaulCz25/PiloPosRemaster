@@ -3,22 +3,106 @@ import json
 import os
 from datetime import datetime
 
+# Adaptadores SQLite
+from store import (
+    proveedores_listar, proveedores_guardar, proveedores_eliminar,
+    productos_listar, productos_guardar, productos_eliminar,
+)
+from db import get_db, init_db
+
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_para_sesiones'
 
-# ------------------------- Ruta base -------------------------
+# --------------------- Inicializar DB (Flask 3 compatible) ---------------------
+try:
+    with app.app_context():
+        init_db()
+except Exception as e:
+    print('init_db warning:', e)
+
+
+# ===================== EXPORTADORES (opcionales) =====================
+def export_productos_json():
+    data = productos_listar()
+    out = {}
+    for p in data:
+        codigo = str(p.get('id') or '')
+        out[codigo] = {
+            'nombre': p.get('nombre') or '',
+            'precio': float(p.get('precio') or 0),
+            'cantidad': int(p.get('stock') or 0),
+            'seccion': p.get('categoria') or ''
+        }
+    os.makedirs('static', exist_ok=True)
+    with open(os.path.join('static', 'productos.json'), 'w', encoding='utf-8') as f:
+        json.dump(out, f, ensure_ascii=False, indent=4)
+
+
+def export_historial_json():
+    items_salida = []
+    with get_db() as conn:
+        ventas = conn.execute(
+            'SELECT id, fecha, total, extra FROM ventas ORDER BY fecha ASC, id ASC'
+        ).fetchall()
+        for v in ventas:
+            fecha_txt = v['fecha'] or ''
+            if ' ' in fecha_txt:
+                fecha_str, hora_str = fecha_txt.split(' ', 1)
+            else:
+                fecha_str, hora_str = fecha_txt, ''
+
+            redondeo = 0.0
+            if v['extra']:
+                try:
+                    extra = json.loads(v['extra'])
+                    redondeo = float(extra.get('redondeo', 0))
+                    if not hora_str and extra.get('hora'):
+                        hora_str = str(extra['hora'])
+                except Exception:
+                    pass
+
+            det = conn.execute(
+                'SELECT vi.cantidad, COALESCE(p.nombre, vi.producto_id) AS nombre '
+                'FROM venta_items vi LEFT JOIN productos p ON p.id = vi.producto_id '
+                'WHERE vi.venta_id=?',
+                (v['id'],)
+            ).fetchall()
+
+            resumen = {}
+            for r in det:
+                nom = r['nombre']
+                cant = int(r['cantidad'] or 0)
+                if nom in resumen:
+                    resumen[nom]['cantidad'] += cant
+                else:
+                    resumen[nom] = {'nombre': nom, 'cantidad': cant}
+
+            items_salida.append({
+                'fecha': fecha_str,
+                'hora': hora_str,
+                'total': float(v['total'] or 0),
+                'redondeo': round(redondeo, 2),
+                'productos': list(resumen.values())
+            })
+
+    with open('historial.json', 'w', encoding='utf-8') as f:
+        json.dump(items_salida, f, ensure_ascii=False, indent=4)
+
+
+# ===================== Rutas =====================
+
 @app.route('/')
 def index():
     return redirect(url_for('venta'))
 
-# ------------------------- Ruta: VENTA -------------------------
+
 @app.route('/venta')
 def venta():
     if 'carrito' not in session:
         session['carrito'] = []
 
     carrito = session.get('carrito', [])
-    total = sum(item['precio'] for item in carrito)
+    total = sum(item.get('precio', 0) for item in carrito)
     total_redondeado = round(total + 0.5)
 
     return render_template(
@@ -29,20 +113,19 @@ def venta():
         mensaje=session.pop('mensaje', None)
     )
 
-# --------------------- Ruta: AGREGAR PRODUCTO ---------------------
+
 @app.route('/agregar-producto', methods=['POST'])
 def agregar_producto():
     codigo = (request.form.get('codigo') or '').strip()
 
-    ruta_json = os.path.join('static', 'productos.json')
-    if not os.path.exists(ruta_json):
-        productos = {}
-    else:
-        with open(ruta_json, 'r', encoding='utf-8') as f:
-            productos = json.load(f)
+    with get_db() as conn:
+        row = conn.execute(
+            'SELECT id, nombre, precio FROM productos WHERE id=?',
+            (codigo,)
+        ).fetchone()
 
-    if codigo in productos:
-        producto = productos[codigo]
+    if row:
+        producto = {'nombre': row['nombre'], 'precio': float(row['precio'])}
         carrito = session.get('carrito', [])
         carrito.append(producto)
         session['carrito'] = carrito
@@ -50,75 +133,94 @@ def agregar_producto():
     else:
         return redirect(url_for('almacen', codigo=codigo))
 
-# --------------------- Ruta: REDONDEAR ---------------------
+
 @app.route('/redondear', methods=['POST'])
 def redondear():
     aceptado = request.form.get('aceptado')
     carrito = session.get('carrito', [])
-    total = sum(item['precio'] for item in carrito)
+    total = sum(item.get('precio', 0) for item in carrito)
     redondeo = round(total + 0.5) - total if aceptado == 'si' else 0
     total_final = round(total + 0.5) if aceptado == 'si' else total
 
-    # Actualizar stock
-    ruta_json = os.path.join('static', 'productos.json')
-    if os.path.exists(ruta_json):
-        with open(ruta_json, 'r', encoding='utf-8') as f:
-            productos = json.load(f)
-    else:
-        productos = {}
-
-    for vendido in carrito:
-        for codigo, info in productos.items():
-            if info['nombre'] == vendido['nombre']:
-                productos[codigo]['cantidad'] = max(0, productos[codigo].get('cantidad', 0) - 1)
-                break
-
-    with open(ruta_json, 'w', encoding='utf-8') as f:
-        json.dump(productos, f, indent=4, ensure_ascii=False)
-
-    # Guardar en historial.json
-    historial_path = 'historial.json'
-    if os.path.exists(historial_path):
-        with open(historial_path, 'r', encoding='utf-8') as f:
-            historial = json.load(f)
-    else:
-        historial = []
-
-    # Agrupar productos repetidos
     resumen = {}
     for item in carrito:
         nombre = item['nombre']
         if nombre in resumen:
             resumen[nombre]['cantidad'] += 1
         else:
-            resumen[nombre] = {"nombre": nombre, "cantidad": 1}
+            resumen[nombre] = {'nombre': nombre, 'cantidad': 1}
 
-    historial.append({
-        "fecha": datetime.now().strftime("%Y-%m-%d"),
-        "hora": datetime.now().strftime("%H:%M"),
-        "total": round(total_final, 2),
-        "redondeo": round(redondeo, 2),
-        "productos": list(resumen.values())
-    })
+    fecha_str = datetime.now().strftime('%Y-%m-%d')
+    hora_str = datetime.now().strftime('%H:%M')
+    venta_id = datetime.now().strftime('V%Y%m%d%H%M%S%f')
 
-    with open(historial_path, 'w', encoding='utf-8') as f:
-        json.dump(historial, f, indent=4, ensure_ascii=False)
+    try:
+        with get_db() as conn:
+            conn.execute('BEGIN')
+
+            extra = {'redondeo': float(redondeo), 'hora': hora_str}
+            conn.execute(
+                'INSERT INTO ventas (id, fecha, cliente, total, extra) VALUES (?, ?, ?, ?, json(?))',
+                (venta_id, f'{fecha_str} {hora_str}', None, float(total_final), json.dumps(extra, ensure_ascii=False))
+            )
+
+            for nombre, info in resumen.items():
+                cantidad = int(info['cantidad'])
+
+                prow = conn.execute(
+                    'SELECT id, precio FROM productos WHERE nombre=? LIMIT 1',
+                    (nombre,)
+                ).fetchone()
+                pid = prow['id'] if prow else ''
+                pu = float(prow['precio']) if prow else 0.0
+
+                conn.execute(
+                    'INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
+                    (venta_id, pid, cantidad, pu)
+                )
+
+                if pid:
+                    conn.execute(
+                        'UPDATE productos SET stock = MAX(0, stock - ?) WHERE id = ?',
+                        (cantidad, pid)
+                    )
+                else:
+                    conn.execute(
+                        'UPDATE productos SET stock = MAX(0, stock - ?) WHERE nombre = ?',
+                        (cantidad, nombre)
+                    )
+
+            conn.execute('COMMIT')
+    except Exception as e:
+        try:
+            conn.execute('ROLLBACK')
+        except Exception:
+            pass
+        session['mensaje'] = f'❌ Error al completar la venta: {e}'
+        return redirect(url_for('venta'))
+
+    # (Compat opcional: espejo JSON)
+    try:
+        export_productos_json()
+        export_historial_json()
+    except Exception as _e:
+        print('export warning:', _e)
 
     session['mensaje'] = (
         f'✅ Venta completada con redondeo de ${redondeo:.2f}.' if aceptado == 'si'
         else '✅ Venta completada sin redondeo.'
     )
-
     session['carrito'] = []
+    session['ultimo_ticket'] = venta_id  # para botón de ticket en ventas
     return redirect(url_for('venta'))
 
-# ------------------------- Ruta: ALMACÉN -------------------------
+
 @app.route('/almacen')
 def almacen():
     codigo = request.args.get('codigo', '')
     return render_template('almacen.html', codigo=codigo)
 
-# --------------------- Ruta: GUARDAR PRODUCTO ---------------------
+
 @app.route('/guardar_producto', methods=['POST'])
 def guardar_producto():
     data = request.get_json() or {}
@@ -126,85 +228,160 @@ def guardar_producto():
     nombre = data.get('nombre')
     precio = float(data.get('precio'))
     cantidad = int(data.get('cantidad'))
-    seccion = data.get('seccion', '')  # <-- guarda la sección
+    seccion = data.get('seccion', '')
 
-    ruta_json = os.path.join('static', 'productos.json')
-    productos = {}
-
-    if os.path.exists(ruta_json):
-        with open(ruta_json, 'r', encoding='utf-8') as f:
-            productos = json.load(f)
-
-    # Si ya existe, conserva campos que no llegaron y actualiza los enviados
-    anterior = productos.get(codigo, {})
-    productos[codigo] = {
-        "nombre": nombre if nombre is not None else anterior.get("nombre", ""),
-        "precio": precio if precio is not None else anterior.get("precio", 0),
-        "cantidad": cantidad if cantidad is not None else anterior.get("cantidad", 0),
-        "seccion": seccion if seccion is not None else anterior.get("seccion", "")
+    data_sql = {
+        'id': codigo,
+        'nombre': nombre,
+        'precio': precio,
+        'stock': cantidad,
+        'categoria': seccion,
     }
+    _id = productos_guardar(data_sql)
 
-    with open(ruta_json, 'w', encoding='utf-8') as f:
-        json.dump(productos, f, indent=4, ensure_ascii=False)
+    try:
+        export_productos_json()
+    except Exception as e:
+        print('export productos warning:', e)
 
-    return {'success': True}
+    return {'success': True, 'id': _id}
 
-# --------------------- Ruta: ELIMINAR PRODUCTO ---------------------
+
+# ===================== BORRADO FORZADO =====================
 @app.route('/eliminar_producto', methods=['POST'])
 def eliminar_producto():
     data = request.get_json() or {}
-    codigo = data.get('codigo')
+    codigo = str(data.get('codigo') or '').strip()
+    if not codigo:
+        return jsonify({'success': False, 'message': 'Falta el código.'}), 400
 
-    ruta_json = os.path.join('static', 'productos.json')
-    if os.path.exists(ruta_json):
-        with open(ruta_json, 'r', encoding='utf-8') as f:
-            productos = json.load(f)
+    cur = None
+    try:
+        with get_db() as conn:
+            conn.execute('BEGIN')
+            # 1) Eliminar detalle de ventas que use este producto
+            conn.execute('DELETE FROM venta_items WHERE producto_id = ?', (codigo,))
+            # 2) Eliminar el producto
+            cur = conn.execute('DELETE FROM productos WHERE id = ?', (codigo,))
+            conn.execute('COMMIT')
 
-        if codigo in productos:
-            del productos[codigo]
-            with open(ruta_json, 'w', encoding='utf-8') as f:
-                json.dump(productos, f, indent=4, ensure_ascii=False)
-            return {'success': True}
-    return {'success': False}
+        if cur and cur.rowcount > 0:
+            try:
+                export_productos_json()
+            except Exception as e:
+                print('export productos warning:', e)
+            return jsonify({'success': True}), 200
 
-# --------------------- Ruta: API PRODUCTOS (tabla JS) ---------------------
+        return jsonify({'success': False, 'message': 'Producto no encontrado.'}), 404
+
+    except Exception as e:
+        try:
+            conn.execute('ROLLBACK')
+        except Exception:
+            pass
+        return jsonify({'success': False, 'message': f'Error al eliminar: {e}'}), 500
+
+
 @app.route('/api/productos')
 def api_productos():
-    ruta_json = os.path.join('static', 'productos.json')
-    if not os.path.exists(ruta_json):
-        return jsonify({})
-    with open(ruta_json, 'r', encoding='utf-8') as f:
-        productos = json.load(f)
-    return jsonify(productos)
+    productos = productos_listar()
+    salida = {}
+    for p in productos:
+        codigo = str(p.get('id') or '')
+        salida[codigo] = {
+            'nombre': p.get('nombre'),
+            'precio': float(p.get('precio') or 0),
+            'cantidad': int(p.get('stock') or 0),
+            'seccion': p.get('categoria') or ''
+        }
+    return jsonify(salida)
 
-# --------------------- Ruta: API HISTORIAL ---------------------
+
 @app.route('/api/historial')
 def api_historial():
-    historial_path = 'historial.json'
-    if not os.path.exists(historial_path):
-        return jsonify([])
-    with open(historial_path, 'r', encoding='utf-8') as f:
-        historial = json.load(f)
-    return jsonify(historial)
+    items_salida = []
+    with get_db() as conn:
+        ventas = conn.execute(
+            'SELECT id, fecha, total, extra FROM ventas ORDER BY fecha ASC, id ASC'
+        ).fetchall()
 
-# --------------------- Ruta: CENTAVOS ---------------------
+        for v in ventas:
+            fecha_txt = v['fecha'] or ''
+            if ' ' in fecha_txt:
+                fecha_str, hora_str = fecha_txt.split(' ', 1)
+            else:
+                fecha_str, hora_str = fecha_txt, ''
+
+            redondeo = 0.0
+            if v['extra']:
+                try:
+                    extra = json.loads(v['extra'])
+                    redondeo = float(extra.get('redondeo', 0))
+                    if not hora_str and extra.get('hora'):
+                        hora_str = str(extra['hora'])
+                except Exception:
+                    pass
+
+            det = conn.execute(
+                'SELECT vi.cantidad, COALESCE(p.nombre, vi.producto_id) AS nombre '
+                'FROM venta_items vi LEFT JOIN productos p ON p.id = vi.producto_id '
+                'WHERE vi.venta_id=?',
+                (v['id'],)
+            ).fetchall()
+
+            resumen = {}
+            for r in det:
+                nom = r['nombre']
+                cant = int(r['cantidad'] or 0)
+                if nom in resumen:
+                    resumen[nom]['cantidad'] += cant
+                else:
+                    resumen[nom] = {'nombre': nom, 'cantidad': cant}
+
+            items_salida.append({
+                'fecha': fecha_str,
+                'hora': hora_str,
+                'total': float(v['total'] or 0),
+                'redondeo': float(redondeo),
+                'productos': list(resumen.values())
+            })
+
+    return jsonify(items_salida)
+
+
 @app.route('/centavos')
 def centavos():
-    historial_path = 'historial.json'
     centavos_list = []
-    total_centavos = 0
-
-    if os.path.exists(historial_path):
-        with open(historial_path, 'r', encoding='utf-8') as f:
-            historial = json.load(f)
-        for venta in historial:
-            if "redondeo" in venta and venta["redondeo"] > 0:
-                centavos_list.append(venta)
-                total_centavos += venta["redondeo"]
+    total_centavos = 0.0
+    with get_db() as conn:
+        ventas = conn.execute(
+            'SELECT fecha, total, extra FROM ventas ORDER BY fecha ASC, id ASC'
+        ).fetchall()
+        for v in ventas:
+            redondeo = 0.0
+            fecha_txt = v['fecha'] or ''
+            if ' ' in fecha_txt:
+                fecha_str, hora_str = fecha_txt.split(' ', 1)
+            else:
+                fecha_str, hora_str = fecha_txt, ''
+            if v['extra']:
+                try:
+                    extra = json.loads(v['extra'])
+                    redondeo = float(extra.get('redondeo', 0))
+                except Exception:
+                    pass
+            if redondeo > 0:
+                centavos_list.append({
+                    'fecha': fecha_str,
+                    'hora': hora_str,
+                    'total': float(v['total'] or 0),
+                    'redondeo': round(redondeo, 2)
+                })
+                total_centavos += redondeo
 
     return render_template('centavos.html', centavos=centavos_list, total_centavos=round(total_centavos, 2))
 
-# --------------------- NUEVO: eliminar item del carrito (SESSION) ---------------------
+
 @app.route('/carrito/eliminar', methods=['POST'])
 def carrito_eliminar():
     data = request.get_json(silent=True) or {}
@@ -218,114 +395,288 @@ def carrito_eliminar():
         carrito.pop(idx)
         session['carrito'] = carrito
         nuevo_total = sum(item.get('precio', 0) for item in carrito)
-        return jsonify({"ok": True, "total": round(nuevo_total, 2), "count": len(carrito)})
+        return jsonify({'ok': True, 'total': round(nuevo_total, 2), 'count': len(carrito)})
 
-    return jsonify({"ok": False, "error": "index out of range"}), 400
+    return jsonify({'ok': False, 'error': 'index out of range'}), 400
 
-# --------------------- Vistas adicionales ---------------------
+
 @app.route('/historial')
 def historial():
     return render_template('historial.html')
+
 
 @app.route('/usuarios')
 def usuarios():
     return render_template('usuarios.html')
 
+
 @app.route('/login')
 def login():
     return render_template('login.html')
 
-# --------- LOGOUT ---------
+
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-# ===================== PROVEEDORES =====================
 
-# ---- Helpers JSON para proveedores (robustos) ----
-def _ruta_proveedores():
-    return os.path.join('static', 'proveedores.json')
-
-def _asegura_static():
-    os.makedirs('static', exist_ok=True)
-
-def _leer_proveedores():
-    ruta = _ruta_proveedores()
-    # Si no existe o está vacío, inicializa con lista vacía
-    if not os.path.exists(ruta) or os.path.getsize(ruta) == 0:
-        _asegura_static()
-        with open(ruta, 'w', encoding='utf-8') as f:
-            json.dump([], f, indent=4, ensure_ascii=False)
-        return []
-
-    try:
-        with open(ruta, 'r', encoding='utf-8') as f:
-            data = json.load(f)
-        return data if isinstance(data, list) else []
-    except json.JSONDecodeError:
-        # Si está corrupto, respáldalo y reinicia
-        try:
-            os.replace(ruta, ruta + '.bak')
-        except Exception:
-            pass
-        with open(ruta, 'w', encoding='utf-8') as f:
-            json.dump([], f, indent=4, ensure_ascii=False)
-        return []
-
-def _guardar_proveedores(lista):
-    _asegura_static()
-    ruta = _ruta_proveedores()
-    with open(ruta, 'w', encoding='utf-8') as f:
-        json.dump(lista or [], f, indent=4, ensure_ascii=False)
-
-# ---- Vista: página de Proveedores ----
 @app.route('/proveedores')
 def proveedores_view():
     return render_template('proveedores.html')
 
-# ---- API: listar proveedores ----
+
 @app.route('/api/proveedores')
 def api_proveedores():
-    return jsonify(_leer_proveedores())
+    return jsonify(proveedores_listar())
 
-# ---- API: guardar (crear/editar) proveedor ----
+
 @app.route('/guardar_proveedor', methods=['POST'])
 def guardar_proveedor():
     data = request.get_json() or {}
-    proveedores = _leer_proveedores()
+    pid = proveedores_guardar(data)
+    return jsonify({'success': True, 'id': pid})
 
-    # Asignar/actualizar ID
-    pid = data.get('id')
-    if pid in (None, '', 'null'):
-        # Crear nuevo ID incremental simple (string)
-        nuevo_id = str((max([int(p.get('id', 0)) for p in proveedores], default=0) + 1))
-        data['id'] = nuevo_id
-        proveedores.append(data)
-    else:
-        # Editar existente
-        actualizado = False
-        for i, p in enumerate(proveedores):
-            if str(p.get('id')) == str(pid):
-                proveedores[i] = data
-                actualizado = True
-                break
-        if not actualizado:
-            proveedores.append(data)
 
-    _guardar_proveedores(proveedores)
-    return jsonify({'success': True, 'id': data['id']})
-
-# ---- API: eliminar proveedor ----
 @app.route('/eliminar_proveedor', methods=['POST'])
 def eliminar_proveedor():
     data = request.get_json() or {}
     pid = str(data.get('id', ''))
-    proveedores = _leer_proveedores()
-    nuevos = [p for p in proveedores if str(p.get('id')) != pid]
-    _guardar_proveedores(nuevos)
+    proveedores_eliminar(pid)
     return jsonify({'success': True})
 
-# --------------------- Inicio ---------------------
+
+# ===================== Ruta de ticket =====================
+@app.route('/ticket/<vid>')
+def ticket(vid):
+    # Ajusta estos datos a tu negocio
+    negocio = {
+        "nombre": "PilotoPOS",
+        "direccion": "Mi calle #123, Ciudad",
+        "telefono": "Tel. 000-000-0000"
+    }
+
+    with get_db() as conn:
+        v = conn.execute(
+            "SELECT id, fecha, total, extra FROM ventas WHERE id=?",
+            (vid,)
+        ).fetchone()
+        if not v:
+            return "Ticket no encontrado", 404
+
+        items = conn.execute(
+            "SELECT COALESCE(p.nombre, vi.producto_id) AS nombre, vi.cantidad, vi.precio_unitario "
+            "FROM venta_items vi LEFT JOIN productos p ON p.id = vi.producto_id "
+            "WHERE vi.venta_id=? ORDER BY vi.id",
+            (vid,)
+        ).fetchall()
+
+    redondeo = 0.0
+    hora_str = ""
+    if v["extra"]:
+        try:
+            extra = json.loads(v["extra"])
+            redondeo = float(extra.get("redondeo", 0))
+            hora_str = extra.get("hora") or ""
+        except Exception:
+            pass
+
+    fecha_txt = v["fecha"] or ""
+    if " " in fecha_txt and not hora_str:
+        fecha_str, hora_str = fecha_txt.split(" ", 1)
+    else:
+        fecha_str = fecha_txt or ""
+
+    lineas = []
+    subtotal = 0.0
+    for it in items:
+        nombre = it["nombre"]
+        cant = int(it["cantidad"] or 0)
+        pu = float(it["precio_unitario"] or 0)
+        imp = cant * pu
+        subtotal += imp
+        lineas.append({
+            "nombre": nombre,
+            "cantidad": cant,
+            "pu": pu,
+            "importe": imp,
+        })
+
+    total = float(v["total"] or 0)
+
+    return render_template(
+        "ticket.html",
+        negocio=negocio,
+        venta=dict(id=v["id"], fecha=fecha_str, hora=hora_str, total=total),
+        lineas=lineas,
+        redondeo=redondeo,
+        subtotal=subtotal
+    )
+
+
+# ===================== PANEL DE DATOS (ADMIN) =====================
+@app.route('/panel')
+def panel():
+    # Renderiza tu template existente
+    return render_template('admin_datos.html')
+
+
+@app.get('/api/ventas')
+def api_ventas():
+    """
+    Lista ventas con filtros opcionales:
+    - q: busca por ID o por fecha (texto)
+    - desde: 'YYYY-MM-DD'
+    - hasta: 'YYYY-MM-DD'
+    """
+    q = (request.args.get('q') or '').strip()
+    desde = (request.args.get('desde') or '').strip()
+    hasta = (request.args.get('hasta') or '').strip()
+
+    sql = "SELECT id, fecha, total, extra FROM ventas"
+    conds = []
+    params = []
+
+    if q:
+        conds.append("(id LIKE ? OR fecha LIKE ?)")
+        params.extend([f"%{q}%", f"%{q}%"])
+    if desde:
+        conds.append("substr(fecha,1,10) >= ?")
+        params.append(desde)
+    if hasta:
+        conds.append("substr(fecha,1,10) <= ?")
+        params.append(hasta)
+
+    if conds:
+        sql += " WHERE " + " AND ".join(conds)
+
+    sql += " ORDER BY fecha DESC, id DESC"
+
+    salida = []
+    with get_db() as conn:
+        ventas = conn.execute(sql, params).fetchall()
+        for v in ventas:
+            vid = v['id']
+            fecha_txt = v['fecha'] or ""
+            if " " in fecha_txt:
+                fecha_str, hora_str = fecha_txt.split(" ", 1)
+            else:
+                fecha_str, hora_str = fecha_txt, ""
+
+            redondeo = 0.0
+            if v['extra']:
+                try:
+                    extra = json.loads(v['extra'])
+                    redondeo = float(extra.get('redondeo', 0))
+                    if not hora_str and extra.get('hora'):
+                        hora_str = str(extra['hora'])
+                except Exception:
+                    pass
+
+            det = conn.execute(
+                "SELECT COALESCE(p.nombre, vi.producto_id) AS nombre, SUM(vi.cantidad) AS cant "
+                "FROM venta_items vi LEFT JOIN productos p ON p.id = vi.producto_id "
+                "WHERE vi.venta_id=? "
+                "GROUP BY COALESCE(p.nombre, vi.producto_id) "
+                "ORDER BY nombre",
+                (vid,)
+            ).fetchall()
+            productos_txt = ", ".join([f"{int(d['cant'] or 0)}x {d['nombre']}" for d in det]) if det else ""
+
+            salida.append({
+                "id": vid,
+                "fecha": fecha_str,
+                "hora": hora_str,
+                "productos": productos_txt,
+                "total": float(v['total'] or 0),
+                "redondeo": float(redondeo),
+            })
+
+    return jsonify(salida)
+
+
+@app.post('/ventas/update')
+def ventas_update():
+    """
+    Actualiza una venta:
+    JSON: { id, fecha?, hora?, total, redondeo }
+    - No modifica los items, solo la cabecera (fecha/hora/total/extra.redondeo).
+    """
+    data = request.get_json(silent=True) or {}
+    vid = (data.get('id') or '').strip()
+    if not vid:
+        return jsonify({"ok": False, "msg": "Falta id"}), 400
+
+    nueva_fecha = (data.get('fecha') or '').strip()     # 'YYYY-MM-DD'
+    nueva_hora  = (data.get('hora') or '').strip()      # 'HH:MM'
+    try:
+        nuevo_total = float(data.get('total'))
+    except Exception:
+        return jsonify({"ok": False, "msg": "Total inválido"}), 400
+
+    try:
+        nuevo_redondeo = float(data.get('redondeo'))
+    except Exception:
+        return jsonify({"ok": False, "msg": "Redondeo inválido"}), 400
+
+    with get_db() as conn:
+        v = conn.execute("SELECT fecha, extra FROM ventas WHERE id=?", (vid,)).fetchone()
+        if not v:
+            return jsonify({"ok": False, "msg": "Venta no encontrada"}), 404
+
+        # Construir fecha completa
+        fecha_actual = v['fecha'] or ""
+        if " " in fecha_actual:
+            f_exist, h_exist = fecha_actual.split(" ", 1)
+        else:
+            f_exist, h_exist = fecha_actual, ""
+
+        f_final = nueva_fecha if nueva_fecha else f_exist
+        h_final = nueva_hora if nueva_hora else h_exist
+        fecha_hora = f_final.strip()
+        if h_final:
+            fecha_hora = f"{f_final.strip()} {h_final.strip()}"
+
+        # Actualizar extra.redondeo (y opcionalmente hora)
+        extra = {}
+        if v['extra']:
+            try:
+                extra = json.loads(v['extra'])
+            except Exception:
+                extra = {}
+        extra['redondeo'] = float(nuevo_redondeo)
+        if h_final:
+            extra['hora'] = h_final
+
+        conn.execute(
+            "UPDATE ventas SET fecha=?, total=?, extra=? WHERE id=?",
+            (fecha_hora, float(nuevo_total), json.dumps(extra, ensure_ascii=False), vid)
+        )
+
+    return jsonify({"ok": True})
+
+
+@app.post('/ventas/delete')
+def ventas_delete():
+    """
+    Elimina la venta completa (cabecera + items).
+    NOTA: No reajustamos inventario (como pediste).
+    """
+    data = request.get_json(silent=True) or {}
+    vid = (data.get('id') or '').strip()
+    if not vid:
+        return jsonify({"ok": False, "msg": "Falta id"}), 400
+
+    with get_db() as conn:
+        v = conn.execute("SELECT id FROM ventas WHERE id=?", (vid,)).fetchone()
+        if not v:
+            return jsonify({"ok": False, "msg": "Venta no encontrada"}), 404
+
+        conn.execute("DELETE FROM venta_items WHERE venta_id=?", (vid,))
+        conn.execute("DELETE FROM ventas WHERE id=?", (vid,))
+
+    return jsonify({"ok": True})
+
+
 if __name__ == '__main__':
     app.run(debug=True)

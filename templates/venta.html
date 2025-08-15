@@ -52,12 +52,10 @@
   <!-- Sidebar -->
   <aside class="w-64 bg-gradient-to-b from-cyan-700 to-cyan-500 text-white flex flex-col py-8 px-6 shadow-2xl rounded-r-3xl">
     
-    <!-- Logo + Marca (más predominante, sin tarjeta) -->
+    <!-- Logo + Marca -->
     <div class="flex flex-col items-center mb-12">
       <img src="/static/logo-piloto.png" alt="PilotoPOS" class="h-28 md:h-32 w-auto mb-4 drop-shadow-lg" />
       <span class="text-xl font-bold tracking-wide text-white/95">PilotoPOS</span>
-      <!-- Si quieres un subtítulo, descomenta esta línea -->
-      <!-- <span class="text-sm text-cyan-100">Punto de Venta</span> -->
     </div>
 
     <div class="mb-4 text-sm uppercase tracking-wider text-cyan-100">Navegación</div>
@@ -76,6 +74,10 @@
       </a>
       <a href="/proveedores" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
         <i data-lucide="truck" class="w-5 h-5"></i> Proveedores
+      </a>
+      <!-- Acceso al Panel de datos -->
+      <a href="/panel" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="database" class="w-5 h-5"></i> Panel de datos
       </a>
     </nav>
 
@@ -114,6 +116,23 @@
         </div>
       {% endif %}
 
+      <!-- BOTÓN: Imprimir último ticket -->
+      {% if session.get('ultimo_ticket') %}
+        <div class="mb-6">
+          <a
+            href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1"
+            class="btn btn-primary px-5 py-2.5 inline-flex items-center gap-2"
+            title="Imprimir último ticket"
+          >
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            Imprimir último ticket
+          </a>
+          <span class="ml-2 text-sm text-gray-500">
+            Folio: {{ session.get('ultimo_ticket') }}
+          </span>
+        </div>
+      {% endif %}
+
       {% if carrito %}
         <!-- Carrito -->
         <div class="rounded-2xl border border-gray-200/60 p-5 mb-6">
@@ -129,7 +148,7 @@
                 </div>
                 <div class="flex items-center gap-4">
                   <div class="text-gray-900 font-semibold">${{ '%.2f'|format(item.precio) }}</div>
-                  <button type="button" onclick="quitarItem({{ loop.index0 }})"
+                  <button type="button" onclick="quitarItem('{{ loop.index0 }}')"
                           class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
                     <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
                   </button>
@@ -212,12 +231,15 @@
     <script>
       function mostrarRedondeo() {
         document.getElementById("redondeoArea").classList.remove("hidden");
-        document.getElementById("bloquePago")?.classList.add("hidden");
-        document.getElementById("resultadoCambio")?.classList.add("hidden");
-        document.getElementById("finalizarCompra")?.classList.add("hidden");
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.add("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
       }
 
-      let totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+      let totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
       let totalFinal = totalVenta;
 
       function setActive(btnOn, btnOff){
@@ -226,23 +248,29 @@
       }
 
       function aceptarRedondeo() {
-        totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
         totalFinal = Math.ceil(totalVenta);
         document.getElementById("campoRedondeo").value = "si";
         setActive(document.getElementById('btnYes'), document.getElementById('btnNo'));
-        document.getElementById("bloquePago").classList.remove("hidden");
-        document.getElementById("resultadoCambio").classList.add("hidden");
-        document.getElementById("finalizarCompra").classList.add("hidden");
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.remove("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
       }
 
       function rechazarRedondeo() {
-        totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || 0);
+        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
         totalFinal = totalVenta;
         document.getElementById("campoRedondeo").value = "no";
         setActive(document.getElementById('btnNo'), document.getElementById('btnYes'));
-        document.getElementById("bloquePago").classList.remove("hidden");
-        document.getElementById("resultadoCambio").classList.add("hidden");
-        document.getElementById("finalizarCompra").classList.add("hidden");
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.remove("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
       }
 
       function calcularCambio() {
@@ -253,7 +281,8 @@
           resultadoDiv.classList.remove("hidden");
           resultadoDiv.innerHTML =
             '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
-          document.getElementById("finalizarCompra").classList.add("hidden");
+          var fc = document.getElementById("finalizarCompra");
+          if (fc) fc.classList.add("hidden");
           return;
         }
 
@@ -263,10 +292,12 @@
         document.getElementById("montoCambio").textContent = `$${cambio}`;
 
         resultadoDiv.classList.remove("hidden");
-        document.getElementById("finalizarCompra").classList.remove("hidden");
+        var fc2 = document.getElementById("finalizarCompra");
+        if (fc2) fc2.classList.remove("hidden");
       }
 
       async function quitarItem(idx){
+        idx = Number(idx); // ← asegura número si vino como string del onclick
         try {
           const resp = await fetch('/carrito/eliminar', {
             method: 'POST',
@@ -287,15 +318,20 @@
           });
 
           totalVenta = Number(data.total) || 0;
-          const siActivo = document.getElementById('btnYes')?.classList.contains('active');
+          const yesBtn = document.getElementById('btnYes');
+          const siActivo = yesBtn ? yesBtn.classList.contains('active') : false;
           totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
           document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
 
-          document.getElementById("bloquePago")?.classList.add("hidden");
-          document.getElementById("resultadoCambio")?.classList.add("hidden");
-          document.getElementById("finalizarCompra")?.classList.add("hidden");
+          var bp = document.getElementById("bloquePago");
+          if (bp) bp.classList.add("hidden");
+          var rc = document.getElementById("resultadoCambio");
+          if (rc) rc.classList.add("hidden");
+          var fc = document.getElementById("finalizarCompra");
+          if (fc) fc.classList.add("hidden");
           if ((data.count || 0) === 0) {
-            document.getElementById("redondeoArea")?.classList.add("hidden");
+            var ra = document.getElementById("redondeoArea");
+            if (ra) ra.classList.add("hidden");
           }
         } catch (e) {
           console.error(e);

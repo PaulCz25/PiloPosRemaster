@@ -1,0 +1,86 @@
+<!doctype html>
+<html lang="es">
+<head>
+  <meta charset="utf-8">
+  <title>Ticket {{ venta.id }}</title>
+  <style>
+    /* Tamaño térmico 80mm; para 58mm cambia a 58mm */
+    @page { size: 80mm auto; margin: 0; }
+    body   { width: 80mm; margin: 0; font-family: ui-monospace, Consolas, "Courier New", monospace; }
+    .tkt   { padding: 8px 10px; font-size: 12px; }
+    h1, h2, h3, p { margin: 0; padding: 0; }
+    .center { text-align: center; }
+    .right  { text-align: right; }
+    .bold   { font-weight: 700; }
+    hr { border: 0; border-top: 1px dashed #000; margin: 6px 0; }
+    .row { display: flex; justify-content: space-between; }
+    .small { font-size: 11px; opacity: 0.9; }
+    .mt { margin-top: 6px; }
+    .mb { margin-bottom: 6px; }
+
+    /* Tabla simple */
+    .items { width: 100%; }
+    .items .line { display: grid; grid-template-columns: 1fr auto auto; gap: 4px; }
+    .items .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    @media print {
+      .no-print { display: none; }
+    }
+  </style>
+</head>
+<body>
+  <div class="tkt">
+    <div class="center">
+      <div class="bold">{{ negocio.nombre }}</div>
+      <div class="small">{{ negocio.direccion }}</div>
+      <div class="small">{{ negocio.telefono }}</div>
+    </div>
+
+    <hr>
+
+    <div class="small">
+      <div>Folio: <span class="bold">{{ venta.id }}</span></div>
+      <div>Fecha: {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}</div>
+    </div>
+
+    <hr>
+
+    <div class="items">
+      {% for it in lineas %}
+        <div class="line">
+          <div class="name">{{ it.nombre }}</div>
+          <div class="right">x{{ it.cantidad }}</div>
+          <div class="right">${{ '%.2f' % it.importe }}</div>
+        </div>
+        <div class="small"> &nbsp;&nbsp; @ ${{ '%.2f' % it.pu }}</div>
+      {% endfor %}
+    </div>
+
+    <hr>
+
+    <div class="row small"><div>Subtotal</div><div class="right">${{ '%.2f' % subtotal }}</div></div>
+    {% if redondeo and redondeo != 0 %}
+    <div class="row small"><div>Redondeo</div><div class="right">${{ '%.2f' % redondeo }}</div></div>
+    {% endif %}
+    <div class="row bold"><div>Total</div><div class="right">${{ '%.2f' % venta.total }}</div></div>
+
+    <hr>
+
+    <div class="center small">¡Gracias por su compra!</div>
+
+    <div class="center no-print mt">
+      <button onclick="window.print()">Imprimir</button>
+      <a href="{{ url_for('venta') }}">Volver</a>
+    </div>
+  </div>
+
+  <script>
+    // Si abres con ?print=1 imprime automático y vuelve a /venta
+    const u = new URL(location.href);
+    if (u.searchParams.get('print') === '1') {
+      window.addEventListener('load', () => window.print());
+      window.addEventListener('afterprint', () => location.href = "{{ url_for('venta') }}");
+    }
+  </script>
+</body>
+</html>
