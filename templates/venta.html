@@ -6,21 +6,52 @@
   <script src="https://cdn.tailwindcss.com"></script>
   <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
   <script src="https://unpkg.com/lucide@latest"></script>
+  <!-- Socket.IO (cliente) -->
+  <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
     body { font-family: 'Inter', sans-serif; }
-    .card { border-radius: 1.25rem; background: #fff; box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06); border: 1px solid rgba(14,116,144,.06); }
+    .card {
+      border-radius: 1.25rem;
+      background: #fff;
+      box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06);
+      border: 1px solid rgba(14,116,144,.06);
+    }
     .soft-divider { border-top: 1px solid rgba(0,0,0,.06); }
-    .input { border: 1px solid rgb(165 243 252 / .6); border-radius: 0.75rem; padding: 0.75rem; box-shadow: 0 1px 2px rgba(0,0,0,.04); width: 100%; outline: none; }
-    .input:focus { box-shadow: 0 0 0 4px rgba(14,116,144,.15); border-color: rgb(14 116 144); }
-    .btn { display: inline-flex; align-items: center; justify-content: center; border-radius: 0.75rem; font-weight: 600; transition: .15s ease; box-shadow: 0 6px 14px -6px rgba(14,116,144,.35); }
-    .btn-primary { background:#0891b2; color:#fff; } .btn-primary:hover { filter: brightness(1.05); }
-    .btn-success { background:#059669; color:#fff; } .btn-danger { background:#dc2626; color:#fff; }
+    .input {
+      border: 1px solid rgb(165 243 252 / .6);
+      border-radius: 0.75rem;
+      padding: 0.75rem;
+      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+      width: 100%;
+      outline: none;
+    }
+    .input:focus {
+      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
+      border-color: rgb(14 116 144);
+    }
+    .btn {
+      display: inline-flex; align-items: center; justify-content: center;
+      border-radius: 0.75rem; font-weight: 600; transition: .15s ease;
+      box-shadow: 0 6px 14px -6px rgba(14,116,144,.35);
+    }
+    .btn-primary { background:#0891b2; color:#fff; }
+    .btn-primary:hover { filter: brightness(1.05); }
+    .btn-success { background:#059669; color:#fff; }
+    .btn-danger { background:#dc2626; color:#fff; }
     .pill { padding:.5rem 1rem; border-radius:9999px; font-weight:600; font-size:.9rem; }
     .pill-yes { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
     .pill-no { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
     .active { box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); transform: translateY(-1px); }
-    .totals-card { background: linear-gradient(180deg, #f7fbff 0%, #f3f8ff 100%); border: 1px solid rgba(14,116,144,.12); border-radius: 1rem; }
-    .btn-ghost { background:#f3f4f6; color:#111827; border-radius:.75rem; }
+    .totals-card {
+      background: linear-gradient(180deg, #f7fbff 0%, #f3f8ff 100%);
+      border: 1px solid rgba(14,116,144,.12);
+      border-radius: 1rem;
+    }
+    /* Tablet en modo display: no interactuar, pero se ve IGUAL */
+    .is-display button, .is-display .btn, .is-display input, .is-display select,
+    .is-display textarea, .is-display form, .is-display a[href] {
+      pointer-events: none !important;
+    }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen flex">
@@ -34,44 +65,61 @@
 
     <div class="mb-4 text-sm uppercase tracking-wider text-cyan-100">Navegación</div>
     <nav class="flex flex-col gap-3 text-base">
-      <a href="/" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="shopping-cart" class="w-5 h-5"></i> Ventas</a>
-      <a href="/almacen" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="box" class="w-5 h-5"></i> Almacén</a>
-      <a href="/historial" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="bar-chart" class="w-5 h-5"></i> Historial</a>
-      <a href="/centavos" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="coins" class="w-5 h-5"></i> Centavos</a>
-      <a href="/proveedores" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="truck" class="w-5 h-5"></i> Proveedores</a>
-      <a href="/panel" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="database" class="w-5 h-5"></i> Panel de datos</a>
-      <!-- Acceso directo al visor -->
-      <a href="/visor" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition btn-ghost"><i data-lucide="eye" class="w-5 h-5"></i> Visor (cliente)</a>
+      <a href="/" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="shopping-cart" class="w-5 h-5"></i> Ventas
+      </a>
+      <a href="/almacen" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="box" class="w-5 h-5"></i> Almacén
+      </a>
+      <a href="/historial" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="bar-chart" class="w-5 h-5"></i> Historial
+      </a>
+      <a href="/centavos" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="coins" class="w-5 h-5"></i> Centavos
+      </a>
+      <a href="/proveedores" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="truck" class="w-5 h-5"></i> Proveedores
+      </a>
+      <a href="/panel" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="database" class="w-5 h-5"></i> Panel de datos
+      </a>
     </nav>
 
     <div class="mt-8 mb-2 text-sm uppercase tracking-wider text-cyan-100">Cuenta</div>
     <nav class="flex flex-col gap-3 text-base">
-      <a href="/usuarios" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="users" class="w-5 h-5"></i> Usuarios</a>
-      <a href="/login" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition"><i data-lucide="lock" class="w-5 h-5"></i> Login</a>
+      <a href="/usuarios" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="users" class="w-5 h-5"></i> Usuarios
+      </a>
+      <a href="/login" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+        <i data-lucide="lock" class="w-5 h-5"></i> Login
+      </a>
     </nav>
   </aside>
 
   <!-- Contenido principal -->
   <main class="flex-1 p-8">
     <div class="card p-8 max-w-4xl mx-auto">
-      <div class="flex items-center justify-between gap-3 mb-6">
-        <h2 class="text-4xl font-extrabold text-cyan-700 flex items-center gap-3">
-          <i data-lucide="shopping-cart" class="w-8 h-8"></i>
-          Punto de Venta
-        </h2>
+      <h2 class="text-4xl font-extrabold text-cyan-700 mb-6 flex items-center gap-3">
+        <i data-lucide="shopping-cart" class="w-8 h-8"></i>
+        Punto de Venta
+      </h2>
 
-        <!-- Botón para agregar manual -->
-        <button type="button" id="btnAbrirManual" class="btn btn-primary px-4 py-2 inline-flex items-center gap-2">
-          <i data-lucide="plus"></i> Agregar manual
-        </button>
-      </div>
-
-      <!-- Captura de código -->
+      <!-- Captura de código + Agregar manual -->
       <form method="POST" action="/agregar-producto" class="mb-6">
         <label for="codigo" class="block text-gray-800 font-semibold mb-2">Escanea o ingresa el código:</label>
         <div class="flex gap-3">
-          <input type="text" id="codigo" name="codigo" required autofocus class="input flex-1" placeholder="Ej: QR123, AZT55, 1234">
+          <input type="text" id="codigo" name="codigo" required autofocus
+                 class="input flex-1" placeholder="Ej: QR123, AZT55, 1234">
           <button type="submit" class="btn btn-primary px-6 py-3">Agregar</button>
+
+          <!-- Botón Agregar manual -->
+          <button type="button"
+                  class="btn px-6 py-3 bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50"
+                  onclick="abrirManual()"
+                  title="Agregar producto manual">
+            <i data-lucide="plus" class="w-5 h-5"></i>
+            <span class="ml-2">Agregar manual</span>
+          </button>
         </div>
       </form>
 
@@ -81,16 +129,25 @@
         </div>
       {% endif %}
 
+      <!-- BOTÓN: Imprimir último ticket -->
       {% if session.get('ultimo_ticket') %}
         <div class="mb-6">
-          <a href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1" class="btn btn-primary px-5 py-2.5 inline-flex items-center gap-2" title="Imprimir último ticket">
-            <i data-lucide="printer" class="w-5 h-5"></i> Imprimir último ticket
+          <a
+            href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1"
+            class="btn btn-primary px-5 py-2.5 inline-flex items-center gap-2"
+            title="Imprimir último ticket"
+          >
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            Imprimir último ticket
           </a>
-          <span class="ml-2 text-sm text-gray-500">Folio: {{ session.get('ultimo_ticket') }}</span>
+          <span class="ml-2 text-sm text-gray-500">
+            Folio: {{ session.get('ultimo_ticket') }}
+          </span>
         </div>
       {% endif %}
 
-      {% if carrito %}
+      {# Forzamos que el bloque exista en modo display aunque el carrito local esté vacío #}
+      {% if carrito or display_mode %}
         <!-- Carrito -->
         <div class="rounded-2xl border border-gray-200/60 p-5 mb-6">
           <div class="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4">
@@ -101,11 +158,12 @@
             {% for item in carrito %}
               <li class="py-3 flex items-center justify-between" data-index="{{ loop.index0 }}">
                 <div class="flex items-center gap-3">
-                  <span class="text-gray-800 item-nombre">{{ item.nombre }}</span>
+                  <span class="text-gray-800">{{ item.nombre }}</span>
                 </div>
                 <div class="flex items-center gap-4">
-                  <div class="text-gray-900 font-semibold item-precio">${{ '%.2f'|format(item.precio) }}</div>
-                  <button type="button" onclick="quitarItem('{{ loop.index0 }}')" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
+                  <div class="text-gray-900 font-semibold">${{ '%.2f'|format(item.precio) }}</div>
+                  <button type="button" onclick="quitarItem('{{ loop.index0 }}')"
+                          class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
                     <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
                   </button>
                 </div>
@@ -141,132 +199,253 @@
         <div id="bloquePago" class="grid md:grid-cols-[1fr_auto] items-start gap-4 hidden">
           <div class="order-2 md:order-2 md:justify-self-end">
             <div class="flex items-center gap-2">
-              <label for="pagoCliente" class="font-semibold text-gray-800 whitespace-nowrap">¿Con cuánto pagó el cliente?</label>
-              <input type="number" id="pagoCliente" step="0.01" placeholder="$ 0.00" class="input w-36 text-right">
+              <label for="pagoCliente" class="font-semibold text-gray-800 whitespace-nowrap">
+                ¿Con cuánto pagó el cliente?
+              </label>
+              <input type="number" id="pagoCliente" step="0.01" placeholder="$ 0.00"
+                     class="input w-36 text-right">
             </div>
           </div>
 
           <div class="order-1 md:order-1 totals-card p-5">
             <div id="resultadoCambio" class="hidden space-y-2">
-              <div class="flex justify-between text-gray-700"><span>Total a pagar:</span><span id="montoTotal" class="font-bold text-gray-900">$0.00</span></div>
-              <div class="flex justify-between text-gray-700"><span>Pago recibido:</span><span id="montoPago" class="font-bold text-emerald-600">$0.00</span></div>
-              <div class="flex justify-between text-gray-700"><span>Cambio a devolver:</span><span id="montoCambio" class="font-bold text-emerald-600">$0.00</span></div>
+              <div class="flex justify-between text-gray-700">
+                <span>Total a pagar:</span>
+                <span id="montoTotal" class="font-bold text-gray-900">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-700">
+                <span>Pago recibido:</span>
+                <span id="montoPago" class="font-bold text-emerald-600">$0.00</span>
+              </div>
+              <div class="flex justify-between text-gray-700">
+                <span>Cambio a devolver:</span>
+                <span id="montoCambio" class="font-bold text-emerald-600">$0.00</span>
+              </div>
             </div>
 
             <div class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <button type="button" onclick="calcularCambio()" class="btn btn-success px-4 py-2">Calcular cambio</button>
+              <button type="button" onclick="calcularCambio()" class="btn btn-success px-4 py-2">
+                Calcular cambio
+              </button>
+
               <div id="finalizarCompra" class="hidden">
                 <form method="POST" action="/redondear" class="inline-block">
                   <input type="hidden" id="campoRedondeo" name="aceptado" value="">
-                  <button type="submit" class="btn btn-primary px-6 py-3">Finalizar compra</button>
+                  <button type="submit" class="btn btn-primary px-6 py-3">
+                    Finalizar compra
+                  </button>
                 </form>
               </div>
             </div>
           </div>
         </div>
-      {% else %}
-        <div class="text-gray-600">Agrega productos para comenzar.</div>
       {% endif %}
     </div>
 
-    <!-- MODAL: Agregar manual -->
+    <!-- Modal: Agregar manual -->
     <div id="modalManual" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
       <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-        <div class="flex items-center gap-2 mb-4">
-          <i data-lucide="plus-circle" class="w-5 h-5 text-cyan-700"></i>
-          <h3 class="text-xl font-bold text-cyan-700">Agregar producto manual</h3>
-        </div>
+        <h3 class="text-xl font-bold text-cyan-700 mb-4 flex items-center gap-2">
+          <i data-lucide="plus" class="w-5 h-5"></i> Agregar producto manual
+        </h3>
         <div class="space-y-3">
           <div>
-            <label class="block text-sm text-gray-700 mb-1">Nombre</label>
-            <input id="manNombre" type="text" class="input" placeholder="Queso 1kg">
+            <label class="text-sm font-medium text-gray-700">Nombre</label>
+            <input id="manNombre" type="text" class="input mt-1" placeholder="Ej: Queso 1kg">
           </div>
           <div>
-            <label class="block text-sm text-gray-700 mb-1">Precio</label>
-            <input id="manPrecio" type="number" step="0.01" min="0" class="input text-right" placeholder="100.00">
+            <label class="text-sm font-medium text-gray-700">Precio</label>
+            <input id="manPrecio" type="number" step="0.01" min="0" class="input mt-1" placeholder="100.00">
           </div>
         </div>
-        <div class="mt-5 flex justify-end gap-2">
-          <button id="btnCancelarManual" class="btn btn-ghost px-4 py-2">Cancelar</button>
-          <button id="btnGuardarManual" class="btn btn-primary px-4 py-2">Agregar</button>
+        <div class="mt-5 flex gap-2 justify-end">
+          <button type="button" class="btn px-4 py-2 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" onclick="cerrarManual()">
+            Cancelar
+          </button>
+          <button type="button" class="btn btn-primary px-4 py-2" onclick="agregarManual()">
+            Añadir
+          </button>
         </div>
       </div>
     </div>
 
     <script>
-      // ======== Estado y sync en vivo ========
-      const POS_ROOM = 'default';
-      let carritoState = {{ carrito|tojson|safe }};
-      if (!Array.isArray(carritoState)) carritoState = [];
-      let redondeoChoice = null; // 'si' | 'no' | null
+      // ---- Modo display por query param ----
+      const params = new URLSearchParams(location.search);
+      const DISPLAY = params.get('display') === '1';
+      if (DISPLAY) document.body.classList.add('is-display');
 
-      function getTotals(){
-        const totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || "0");
-        const yesActive = document.getElementById('btnYes')?.classList.contains('active');
-        const noActive  = document.getElementById('btnNo')?.classList.contains('active');
-        redondeoChoice = yesActive ? 'si' : (noActive ? 'no' : null);
-        const totalFinal = yesActive ? Math.ceil(totalVenta) : totalVenta;
-        const pago = parseFloat(document.getElementById('pagoCliente')?.value || '0') || 0;
-        const cambio = (pago >= totalFinal) ? +(pago - totalFinal).toFixed(2) : 0;
-        return { totalVenta, totalFinal, pago, cambio };
+      // ---- Socket.IO ----
+      const socket = io();
+      socket.emit('join', { role: DISPLAY ? 'display' : 'admin' });
+
+      socket.on('state', (s) => {
+        // Llega desde el servidor (reenviado de la PC)
+        renderFromState(s);
+      });
+
+      function parseMoney(str) {
+        return Number(String(str || '0').replace(/[^\d.]/g, '')) || 0;
       }
 
-      async function emitSync(extra = {}){
-        const { totalVenta, totalFinal, pago, cambio } = getTotals();
-        const payload = {
-          room: POS_ROOM,
-          carrito: (carritoState || []).map(it => ({ nombre: it.nombre, precio: +it.precio })),
-          redondeo: redondeoChoice,
-          total: +totalVenta,
-          total_final: +totalFinal,
-          pago: +pago,
-          cambio: +cambio,
-          ts: Date.now()
+      function collectState() {
+        // Lee el DOM actual y arma el estado a enviar
+        const items = [];
+        document.querySelectorAll('#listaCarrito li').forEach(li => {
+          const name = li.querySelector('span.text-gray-800')?.textContent?.trim() || '';
+          const priceTxt = li.querySelector('div.text-gray-900')?.textContent || '0';
+          const price = parseMoney(priceTxt);
+          if (name) items.push({ nombre: name, precio: price });
+        });
+
+        const totalBrutoEl = document.getElementById('totalBruto');
+        const total = parseMoney(totalBrutoEl ? totalBrutoEl.textContent : '0');
+
+        const redondeoArea = document.getElementById('redondeoArea');
+        const bloquePago = document.getElementById('bloquePago');
+        const resultadoCambio = document.getElementById('resultadoCambio');
+        const finalizarCompra = document.getElementById('finalizarCompra');
+        const campoRedondeo = document.getElementById('campoRedondeo');
+
+        const pagoInput = document.getElementById('pagoCliente');
+        const pago = pagoInput && pagoInput.value ? Number(pagoInput.value) : 0;
+
+        // totalFinal está en tu script original como global
+        let tf = (typeof totalFinal !== 'undefined' && isFinite(totalFinal)) ? Number(totalFinal) : total;
+        if (!isFinite(tf) || tf <= 0) tf = total;
+
+        return {
+          carrito: items,
+          total: Number(total.toFixed(2)),
+          total_redondeado: Math.round(total + 0.5),
+          redondeo_visible: redondeoArea ? !redondeoArea.classList.contains('hidden') : false,
+          redondeo_aceptado: campoRedondeo ? (campoRedondeo.value || "") : "",
+          bloquePago_visible: bloquePago ? !bloquePago.classList.contains('hidden') : false,
+          resultadoCambio_visible: resultadoCambio ? !resultadoCambio.classList.contains('hidden') : false,
+          finalizar_visible: finalizarCompra ? !finalizarCompra.classList.contains('hidden') : false,
+          total_final: Number(tf.toFixed(2)),
+          pago: isFinite(pago) ? Number(pago) : 0,
+          cambio: isFinite(pago) ? Number((pago - tf).toFixed(2)) : 0
         };
-        Object.assign(payload, extra);
-        try {
-          await fetch('/sync/carrito', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(payload)
-          });
-        } catch (e) { console.warn('sync error', e); }
       }
 
-      // ======== Lógica existente + hooks para sync ========
+      function renderFromState(s) {
+        // 1) Lista del carrito
+        const ul = document.getElementById('listaCarrito');
+        if (ul) {
+          ul.innerHTML = '';
+          (s.carrito || []).forEach((it, idx) => {
+            const li = document.createElement('li');
+            li.className = 'py-3 flex items-center justify-between';
+            li.setAttribute('data-index', idx);
+            li.innerHTML = `
+              <div class="flex items-center gap-3">
+                <span class="text-gray-800"></span>
+              </div>
+              <div class="flex items-center gap-4">
+                <div class="text-gray-900 font-semibold"></div>
+                <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
+                  <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
+                </button>
+              </div>`;
+            li.querySelector('span.text-gray-800').textContent = it.nombre || '';
+            li.querySelector('div.text-gray-900').textContent = '$' + Number(it.precio || 0).toFixed(2);
+            ul.appendChild(li);
+          });
+        }
+
+        // 2) Totales
+        const totalBruto = document.getElementById('totalBruto');
+        if (totalBruto) totalBruto.textContent = (s.total || 0).toFixed(2);
+
+        // 3) Redondeo y flujo de pago
+        const redondeoArea = document.getElementById('redondeoArea');
+        if (redondeoArea) redondeoArea.classList.toggle('hidden', !s.redondeo_visible);
+
+        const btnYes = document.getElementById('btnYes');
+        const btnNo = document.getElementById('btnNo');
+        if (btnYes && btnNo) {
+          btnYes.classList.toggle('active', s.redondeo_aceptado === 'si');
+          btnNo.classList.toggle('active', s.redondeo_aceptado === 'no');
+        }
+
+        const campoRedondeo = document.getElementById('campoRedondeo');
+        if (campoRedondeo) campoRedondeo.value = s.redondeo_aceptado || '';
+
+        const bloquePago = document.getElementById('bloquePago');
+        if (bloquePago) bloquePago.classList.toggle('hidden', !s.bloquePago_visible);
+
+        const resultadoCambio = document.getElementById('resultadoCambio');
+        if (resultadoCambio) resultadoCambio.classList.toggle('hidden', !s.resultadoCambio_visible);
+
+        const finalizarCompra = document.getElementById('finalizarCompra');
+        if (finalizarCompra) finalizarCompra.classList.toggle('hidden', !s.finalizar_visible);
+
+        const pagoInput = document.getElementById('pagoCliente');
+        if (pagoInput) pagoInput.value = s.pago || '';
+
+        const mTotal = document.getElementById('montoTotal');
+        const mPago  = document.getElementById('montoPago');
+        const mCambio= document.getElementById('montoCambio');
+        if (mTotal) mTotal.textContent  = '$' + Number(s.total_final || s.total || 0).toFixed(2);
+        if (mPago)  mPago.textContent   = '$' + Number(s.pago || 0).toFixed(2);
+        if (mCambio) mCambio.textContent= '$' + Number(s.cambio || 0).toFixed(2);
+
+        if (window.lucide) lucide.createIcons();
+      }
+
+      function broadcast() {
+        if (!DISPLAY) {
+          socket.emit('update-display', collectState());
+        }
+      }
+
+      // ---------------- Tu lógica original + hooks de broadcast ----------------
       function mostrarRedondeo() {
         document.getElementById("redondeoArea").classList.remove("hidden");
-        document.getElementById("bloquePago")?.classList.add("hidden");
-        document.getElementById("resultadoCambio")?.classList.add("hidden");
-        document.getElementById("finalizarCompra")?.classList.add("hidden");
-        emitSync({ ui: 'mostrar_redondeo' });
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.add("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
+        broadcast();
       }
 
-      let totalVenta = parseFloat(document.getElementById("totalBruto")?.textContent || "0");
+      let totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
       let totalFinal = totalVenta;
 
-      function setActive(btnOn, btnOff){ btnOn.classList.add('active'); btnOff.classList.remove('active'); }
+      function setActive(btnOn, btnOff){
+        btnOn.classList.add('active');
+        btnOff.classList.remove('active');
+      }
 
       function aceptarRedondeo() {
-        totalVenta = parseFloat(document.getElementById("totalBruto").textContent || 0);
+        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
         totalFinal = Math.ceil(totalVenta);
         document.getElementById("campoRedondeo").value = "si";
         setActive(document.getElementById('btnYes'), document.getElementById('btnNo'));
-        document.getElementById("bloquePago")?.classList.remove("hidden");
-        document.getElementById("resultadoCambio")?.classList.add("hidden");
-        document.getElementById("finalizarCompra")?.classList.add("hidden");
-        emitSync({ action: 'redondeo', value: 'si' });
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.remove("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
+        broadcast();
       }
 
       function rechazarRedondeo() {
-        totalVenta = parseFloat(document.getElementById("totalBruto").textContent || 0);
+        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
         totalFinal = totalVenta;
         document.getElementById("campoRedondeo").value = "no";
         setActive(document.getElementById('btnNo'), document.getElementById('btnYes'));
-        document.getElementById("bloquePago")?.classList.remove("hidden");
-        document.getElementById("resultadoCambio")?.classList.add("hidden");
-        document.getElementById("finalizarCompra")?.classList.add("hidden");
-        emitSync({ action: 'redondeo', value: 'no' });
+        var bp = document.getElementById("bloquePago");
+        if (bp) bp.classList.remove("hidden");
+        var rc = document.getElementById("resultadoCambio");
+        if (rc) rc.classList.add("hidden");
+        var fc = document.getElementById("finalizarCompra");
+        if (fc) fc.classList.add("hidden");
+        broadcast();
       }
 
       function calcularCambio() {
@@ -275,9 +454,11 @@
 
         if (isNaN(pago) || pago < totalFinal) {
           resultadoDiv.classList.remove("hidden");
-          resultadoDiv.innerHTML = '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
-          document.getElementById("finalizarCompra")?.classList.add("hidden");
-          emitSync({ action: 'pago_insuficiente' });
+          resultadoDiv.innerHTML =
+            '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
+          var fc = document.getElementById("finalizarCompra");
+          if (fc) fc.classList.add("hidden");
+          broadcast();
           return;
         }
 
@@ -287,8 +468,9 @@
         document.getElementById("montoCambio").textContent = `$${cambio}`;
 
         resultadoDiv.classList.remove("hidden");
-        document.getElementById("finalizarCompra")?.classList.remove("hidden");
-        emitSync({ action: 'pago_ok' });
+        var fc2 = document.getElementById("finalizarCompra");
+        if (fc2) fc2.classList.remove("hidden");
+        broadcast();
       }
 
       async function quitarItem(idx){
@@ -300,19 +482,17 @@
             body: JSON.stringify({ index: idx })
           });
           const data = await resp.json();
+
           if (!resp.ok || !data.ok) return;
 
-          // DOM
           const li = document.querySelector(`li[data-index="${idx}"]`);
           if (li) li.remove();
+
           document.querySelectorAll('#listaCarrito li').forEach((el, i) => {
             el.setAttribute('data-index', i);
             const btn = el.querySelector('button[onclick^="quitarItem"]');
             if (btn) btn.setAttribute('onclick', `quitarItem(${i})`);
           });
-
-          // Estado local
-          carritoState.splice(idx, 1);
 
           totalVenta = Number(data.total) || 0;
           const yesBtn = document.getElementById('btnYes');
@@ -323,75 +503,90 @@
           document.getElementById("bloquePago")?.classList.add("hidden");
           document.getElementById("resultadoCambio")?.classList.add("hidden");
           document.getElementById("finalizarCompra")?.classList.add("hidden");
-          if ((data.count || 0) === 0) document.getElementById("redondeoArea")?.classList.add("hidden");
-
-          emitSync({ action: 'quitar' });
+          if ((data.count || 0) === 0) {
+            document.getElementById("redondeoArea")?.classList.add("hidden");
+          }
+          broadcast();
         } catch (e) {
           console.error(e);
         }
       }
 
-      // ====== Modal manual ======
-      const modal = document.getElementById('modalManual');
-      document.getElementById('btnAbrirManual')?.addEventListener('click', () => { modal.classList.remove('hidden'); modal.classList.add('flex'); });
-      document.getElementById('btnCancelarManual')?.addEventListener('click', () => { modal.classList.add('hidden'); modal.classList.remove('flex'); });
-      document.getElementById('btnGuardarManual')?.addEventListener('click', async () => {
+      // -------- Agregar manual ----------
+      function abrirManual(){
+        const m = document.getElementById('modalManual');
+        document.getElementById('manNombre').value = '';
+        document.getElementById('manPrecio').value = '';
+        m.classList.remove('hidden'); m.classList.add('flex');
+      }
+      function cerrarManual(){
+        const m = document.getElementById('modalManual');
+        m.classList.add('hidden'); m.classList.remove('flex');
+      }
+
+      async function agregarManual(){
         const nombre = (document.getElementById('manNombre').value || '').trim();
         const precio = Number(document.getElementById('manPrecio').value);
+
         if (!nombre) { alert('Escribe un nombre.'); return; }
         if (!isFinite(precio) || precio < 0) { alert('Precio inválido.'); return; }
 
         try {
           const resp = await fetch('/carrito/agregar_manual', {
-            method:'POST',
-            headers:{'Content-Type':'application/json'},
+            method: 'POST',
+            headers: {'Content-Type':'application/json'},
             body: JSON.stringify({ nombre, precio })
           });
           const data = await resp.json();
           if (!resp.ok || !data.ok) { alert('No se pudo agregar.'); return; }
 
-          // Si estaba vacío, recarga para mostrar bloque de carrito
+          // Si no hay bloque de carrito (estaba vacío), recarga para mostrarlo
           const ul = document.getElementById('listaCarrito');
           if (!ul) { window.location.reload(); return; }
 
           const idx = ul.querySelectorAll('li').length;
           const li = document.createElement('li');
-          li.className = "py-3 flex items-center justify-between";
-          li.setAttribute('data-index', String(idx));
+          li.className = 'py-3 flex items-center justify-between';
+          li.setAttribute('data-index', idx);
           li.innerHTML = `
-            <div class="flex items-center gap-3"><span class="text-gray-800 item-nombre"></span></div>
+            <div class="flex items-center gap-3">
+              <span class="text-gray-800"></span>
+            </div>
             <div class="flex items-center gap-4">
-              <div class="text-gray-900 font-semibold item-precio"></div>
-              <button type="button" onclick="quitarItem('${idx}')" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
+              <div class="text-gray-900 font-semibold"></div>
+              <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito" onclick="quitarItem(${idx})">
                 <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
               </button>
-            </div>`;
-          li.querySelector('.item-nombre').textContent = nombre;
-          li.querySelector('.item-precio').textContent = '$' + Number(precio).toFixed(2);
+            </div>
+          `;
+          li.querySelector('span.text-gray-800').textContent = nombre;
+          li.querySelector('div.text-gray-900').textContent = '$' + Number(precio).toFixed(2);
           ul.appendChild(li);
 
-          // Estado local + totales
-          carritoState.push({ nombre, precio });
-          const nuevoTotal = (carritoState || []).reduce((a, it) => a + (+it.precio || 0), 0);
-          document.getElementById('totalBruto').textContent = nuevoTotal.toFixed(2);
+          totalVenta = Number(data.total) || 0;
+          const yesBtn = document.getElementById('btnYes');
+          const siActivo = yesBtn ? yesBtn.classList.contains('active') : false;
+          totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
+          document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
 
-          // Reset/close modal
-          document.getElementById('manNombre').value = '';
-          document.getElementById('manPrecio').value = '';
-          modal.classList.add('hidden'); modal.classList.remove('flex');
+          document.getElementById("redondeoArea")?.classList.add("hidden");
+          document.getElementById("bloquePago")?.classList.add("hidden");
+          document.getElementById("resultadoCambio")?.classList.add("hidden");
+          document.getElementById("finalizarCompra")?.classList.add("hidden");
+
+          cerrarManual();
           if (window.lucide) lucide.createIcons();
-
-          emitSync({ action: 'agregar_manual' });
+          broadcast();
         } catch (e) {
           console.error(e);
           alert('Error de red al agregar.');
         }
-      });
+      }
 
-      // Emitir estado al cargar la página
+      // Emitir estado completo al cargar (útil tras redirecciones de POST)
       document.addEventListener('DOMContentLoaded', () => {
         if (window.lucide) lucide.createIcons();
-        emitSync({ ui: 'load' });
+        broadcast();
       });
     </script>
   </main>

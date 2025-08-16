@@ -1,9 +1,11 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, stream_with_context
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify
 import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
-from queue import Queue
+
+# WebSockets en Flask
+from flask_socketio import SocketIO, join_room, emit
 
 # Zona horaria por defecto: Baja California (Tijuana).
 # Puedes sobreescribirla en Render con la env var APP_TZ
@@ -19,53 +21,43 @@ from db import get_db, init_db
 app = Flask(__name__)
 app.secret_key = 'clave_secreta_para_sesiones'
 
+# ---- Socket.IO ----
+# En Render funciona con WebSockets; eventlet recomendado.
+socketio = SocketIO(app, cors_allowed_origins="*")
+
+# Estado "reciente" para sincronizar a una tablet que se conecta después
+_last_state = None
+
+@socketio.on("join")
+def on_join(data):
+    """
+    data puede ser {'role': 'display'|'admin'} o un string directo.
+    """
+    role = data.get('role') if isinstance(data, dict) else str(data)
+    if role == "display":
+        join_room("display")
+        # Si hay estado previo, sincroniza a la tablet inmediatamente
+        if _last_state:
+            emit("state", _last_state)
+    elif role == "admin":
+        join_room("admin")
+
+@socketio.on("update-display")
+def on_update_display(payload):
+    """
+    Se llama desde la PC (admin). Reenvía estado a la(s) tablet(s).
+    """
+    global _last_state
+    _last_state = payload
+    emit("state", payload, to="display")
+
+
 # --------------------- Inicializar DB (Flask 3 compatible) ---------------------
 try:
     with app.app_context():
         init_db()
 except Exception as e:
     print('init_db warning:', e)
-
-
-# ===================== SSE (eventos en vivo) =====================
-_sse_clients = set()
-
-def broadcast(event_name: str, payload: dict):
-    """Envia un evento a todos los clientes conectados al stream SSE."""
-    for q in list(_sse_clients):
-        try:
-            q.put_nowait((event_name, payload))
-        except Exception:
-            pass
-
-@app.get('/events')
-def events():
-    """Stream SSE. El visor (y quien quiera) se conecta aquí."""
-    q = Queue()
-    _sse_clients.add(q)
-
-    def generator():
-        try:
-            # mensaje inicial para comprobar conexión
-            yield "event: ping\ndata: {}\n\n"
-            while True:
-                name, data = q.get()
-                yield f"event: {name}\n"
-                yield "data: " + json.dumps(data, ensure_ascii=False) + "\n\n"
-        finally:
-            _sse_clients.discard(q)
-
-    resp = Response(stream_with_context(generator()), mimetype='text/event-stream')
-    resp.headers['Cache-Control'] = 'no-cache'
-    resp.headers['X-Accel-Buffering'] = 'no'
-    return resp
-
-@app.post('/sync/carrito')
-def sync_carrito():
-    """Recibe el estado del carrito desde /venta y lo transmite por SSE."""
-    data = request.get_json(silent=True) or {}
-    broadcast('carrito_sync', data)
-    return jsonify({'ok': True})
 
 
 # ===================== EXPORTADORES (opcionales) =====================
@@ -153,12 +145,16 @@ def venta():
     total = sum(item.get('precio', 0) for item in carrito)
     total_redondeado = round(total + 0.5)
 
+    # Para forzar que la tablet renderice el bloque (aunque su sesión esté vacía)
+    display_mode = (request.args.get('display') == '1')
+
     return render_template(
         'venta.html',
         carrito=carrito,
         total=total,
         total_redondeado=total_redondeado,
-        mensaje=session.pop('mensaje', None)
+        mensaje=session.pop('mensaje', None),
+        display_mode=display_mode
     )
 
 
@@ -287,16 +283,6 @@ def redondear():
         export_historial_json()
     except Exception as _e:
         print('export warning:', _e)
-
-    # Limpia el visor del cliente al terminar la compra
-    try:
-        broadcast('carrito_sync', {
-            'carrito': [], 'total': 0, 'total_final': 0,
-            'pago': 0, 'cambio': 0, 'clear': True,
-            'ts': int(datetime.now(LOCAL_TZ).timestamp() * 1000)
-        })
-    except Exception:
-        pass
 
     session['mensaje'] = (
         f'✅ Venta completada con redondeo de ${redondeo:.2f}.' if aceptado == 'si'
@@ -616,12 +602,6 @@ def panel():
     return render_template('admin_datos.html')
 
 
-# ===================== VISOR (solo lectura) =====================
-@app.route('/visor')
-def visor():
-    return render_template('visor.html')
-
-
 @app.get('/api/ventas')
 def api_ventas():
     """
@@ -780,4 +760,8 @@ def ventas_delete():
 
 
 if __name__ == '__main__':
-    app.run(debug=True)
+    # En producción (Render) usa gunicorn/eventlet, pero esto permite correr local:
+    #   gunicorn -k eventlet -w 1 app:app
+    # ó simplemente:
+    #   python app.py
+    socketio.run(app, debug=True)
