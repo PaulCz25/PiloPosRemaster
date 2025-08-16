@@ -1,8 +1,9 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, Response, stream_with_context
 import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
+from queue import Queue
 
 # Zona horaria por defecto: Baja California (Tijuana).
 # Puedes sobreescribirla en Render con la env var APP_TZ
@@ -26,9 +27,51 @@ except Exception as e:
     print('init_db warning:', e)
 
 
+# ===================== SSE (eventos en vivo) =====================
+_sse_clients = set()
+
+def broadcast(event_name: str, payload: dict):
+    """Envia un evento a todos los clientes conectados al stream SSE."""
+    for q in list(_sse_clients):
+        try:
+            q.put_nowait((event_name, payload))
+        except Exception:
+            pass
+
+@app.get('/events')
+def events():
+    """Stream SSE. El visor (y quien quiera) se conecta aquí."""
+    q = Queue()
+    _sse_clients.add(q)
+
+    def generator():
+        try:
+            # mensaje inicial para comprobar conexión
+            yield "event: ping\ndata: {}\n\n"
+            while True:
+                name, data = q.get()
+                yield f"event: {name}\n"
+                yield "data: " + json.dumps(data, ensure_ascii=False) + "\n\n"
+        finally:
+            _sse_clients.discard(q)
+
+    resp = Response(stream_with_context(generator()), mimetype='text/event-stream')
+    resp.headers['Cache-Control'] = 'no-cache'
+    resp.headers['X-Accel-Buffering'] = 'no'
+    return resp
+
+@app.post('/sync/carrito')
+def sync_carrito():
+    """Recibe el estado del carrito desde /venta y lo transmite por SSE."""
+    data = request.get_json(silent=True) or {}
+    broadcast('carrito_sync', data)
+    return jsonify({'ok': True})
+
+
 # ===================== EXPORTADORES (opcionales) =====================
 def export_productos_json():
-    data = productos_listar()
+    # ⬇️ Ocultamos los productos creados “al vuelo”
+    data = [p for p in productos_listar() if (p.get('categoria') or '').upper() != 'MANUAL']
     out = {}
     for p in data:
         codigo = str(p.get('id') or '')
@@ -208,7 +251,7 @@ def redondear():
                     pu = float(prow['precio'] or 0.0)
                     tiene_db = True
                 else:
-                    # ---- NUEVO: crear un producto "manual" para respetar FK ----
+                    # ---- Crear un producto "MANUAL" para respetar la FK ----
                     pu = float(info.get('precio', 0.0))
                     pid = ahora.strftime('M%Y%m%d%H%M%S%f')  # id único
                     conn.execute(
@@ -244,6 +287,16 @@ def redondear():
         export_historial_json()
     except Exception as _e:
         print('export warning:', _e)
+
+    # Limpia el visor del cliente al terminar la compra
+    try:
+        broadcast('carrito_sync', {
+            'carrito': [], 'total': 0, 'total_final': 0,
+            'pago': 0, 'cambio': 0, 'clear': True,
+            'ts': int(datetime.now(LOCAL_TZ).timestamp() * 1000)
+        })
+    except Exception:
+        pass
 
     session['mensaje'] = (
         f'✅ Venta completada con redondeo de ${redondeo:.2f}.' if aceptado == 'si'
@@ -323,7 +376,12 @@ def eliminar_producto():
 
 @app.route('/api/productos')
 def api_productos():
+    # ⬇️ Por defecto ocultamos los MANUAL. Para incluirlos: ?incluir_manuales=1
+    incluir_manuales = (request.args.get('incluir_manuales') == '1')
     productos = productos_listar()
+    if not incluir_manuales:
+        productos = [p for p in productos if (p.get('categoria') or '').upper() != 'MANUAL']
+
     salida = {}
     for p in productos:
         codigo = str(p.get('id') or '')
@@ -556,6 +614,12 @@ def ticket(vid):
 @app.route('/panel')
 def panel():
     return render_template('admin_datos.html')
+
+
+# ===================== VISOR (solo lectura) =====================
+@app.route('/visor')
+def visor():
+    return render_template('visor.html')
 
 
 @app.get('/api/ventas')
