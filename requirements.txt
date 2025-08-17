@@ -1,6 +1,7 @@
-Flask
-gunicorn
-Flask>=3.0
-tzdata>=2024.1
-flask-socketio==5.3.6
-eventlet==0.36.1
+ Flask>=3.0
+flask-socketio>=5.3
+python-socketio>=5.11
+python-engineio>=4.9
+eventlet>=0.36 ; platform_system != "Windows" or python_version < "3.13"
+gevent>=24.2.1
+gevent-websocket>=0.10.1
