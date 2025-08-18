@@ -4,6 +4,12 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
 
+# === Config persistencia (Opción 1: SQLite + Disco Persistente) ===
+# DATA_DIR apunta al disco persistente en Render (p. ej., /var/data)
+DATA_DIR = os.getenv("DATA_DIR", "/var/data")
+os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
+os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
+
 # WebSockets en Flask
 from flask_socketio import SocketIO, join_room, emit
 
@@ -19,10 +25,10 @@ from store import (
 from db import get_db, init_db
 
 app = Flask(__name__)
-app.secret_key = 'clave_secreta_para_sesiones'
+app.secret_key = os.getenv('SECRET_KEY', 'dev-key')
 
 # ---- Socket.IO ----
-# En Render funciona con WebSockets; eventlet recomendado.
+# En Render funciona con WebSockets; con gunicorn + gevent-websocket (ver startCommand).
 socketio = SocketIO(app, cors_allowed_origins="*")
 
 # Estado "reciente" para sincronizar a una tablet que se conecta después
@@ -73,8 +79,10 @@ def export_productos_json():
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    os.makedirs('static', exist_ok=True)
-    with open(os.path.join('static', 'productos.json'), 'w', encoding='utf-8') as f:
+    # Persistir en disco persistente
+    out_dir = os.path.join(DATA_DIR, 'static')
+    os.makedirs(out_dir, exist_ok=True)
+    with open(os.path.join(out_dir, 'productos.json'), 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, indent=4)
 
 
@@ -125,7 +133,8 @@ def export_historial_json():
                 'productos': list(resumen.values())
             })
 
-    with open('historial.json', 'w', encoding='utf-8') as f:
+    # Persistir en disco persistente
+    with open(os.path.join(DATA_DIR, 'historial.json'), 'w', encoding='utf-8') as f:
         json.dump(items_salida, f, ensure_ascii=False, indent=4)
 
 
@@ -277,7 +286,7 @@ def redondear():
         session['mensaje'] = f'❌ Error al completar la venta: {e}'
         return redirect(url_for('venta'))
 
-    # (Compat opcional: espejo JSON)
+    # (Compat opcional: espejo JSON persistente)
     try:
         export_productos_json()
         export_historial_json()
@@ -760,8 +769,7 @@ def ventas_delete():
 
 
 if __name__ == '__main__':
-    # En producción (Render) usa gunicorn/eventlet, pero esto permite correr local:
-    #   gunicorn -k eventlet -w 1 app:app
-    # ó simplemente:
+    # En producción (Render) usa gunicorn + gevent-websocket (ver startCommand del render.yaml).
+    # Para correr localmente:
     #   python app.py
     socketio.run(app, debug=True)

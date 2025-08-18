@@ -1,8 +1,9 @@
 # db.py: conexión y utilidades de SQLite para PilotoPOS
+import os 
 import sqlite3
 from pathlib import Path
 
-DB_PATH = Path(__file__).with_name("pilotopos.db")
+DB_PATH = Path(os.getenv("DB_PATH", "/var/data/pilotopos.db"))
 
 def get_db():
     conn = sqlite3.connect(DB_PATH)
