@@ -6,7 +6,7 @@ from zoneinfo import ZoneInfo  # ← zona horaria real
 
 # === Config persistencia (Opción 1: SQLite + Disco Persistente) ===
 # DATA_DIR apunta al disco persistente en Render (p. ej., /var/data)
-DATA_DIR = os.getenv("DATA_DIR", ".")
+DATA_DIR = os.getenv("DATA_DIR", "/var/data")
 os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
 os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
 

@@ -1,4 +1,5 @@
 # db.py: conexión y utilidades de SQLite para PilotoPOS
+import os 
 import sqlite3
 from pathlib import Path
 
