@@ -4,195 +4,99 @@
   <meta charset="utf-8">
   <title>Ticket {{ venta.id }}</title>
   <style>
-    :root {
-      --paper: 80mm; /* 58mm si tu rollo es de 58 */
-      --fs-base: 13px;
-      --fs-small: 12px;
-      --rule: 2px;   /* grosor líneas */
-      --gap: 8px;
+    :root{
+      --paper: 58mm;           /* cámbialo a 80mm si tu rollo es de 80 */
+      --edge: 3mm;             /* margen seguro */
+      --safe: calc(var(--paper) - (var(--edge)*2));
+      --fs-base: 11px;
+      --fs-small: 10px;
+      --rule: 1px;
+      --gap: 4px;
     }
 
     @page { size: var(--paper) auto; margin: 0; }
-    html, body { margin: 0; padding: 0; }
+    html, body { margin:0; padding:0; }
     body{
-      width: var(--paper);
+      width: var(--safe);
       margin: 0 auto;
-      font-family: Arial, Helvetica, sans-serif;
+      font-family: Arial, sans-serif;
       font-size: var(--fs-base);
-      letter-spacing: .3px;     /* mejora nitidez en térmica */
-      line-height: 1.4;
-      color: #000;
-      font-weight: 500;
+      line-height: 1.2;
+      color:#000;
+      font-variant-numeric: tabular-nums;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
     }
 
-    .tkt { padding: 10px; }
-    h1,h2,h3,p,div { margin: 0; padding: 0; }
-    .center { text-align: center; }
-    .right  { text-align: right; }
-    .bold   { font-weight: 700; }
-    .small  { font-size: var(--fs-small); }
+    .tkt{ padding:4px; }
+    .center{text-align:center;}
+    .right{text-align:right;}
+    .bold{font-weight:700;}
+    .small{font-size:var(--fs-small);}
+    .rule{border:0;border-top:var(--rule) solid #000;margin:var(--gap) 0;}
 
-    /* ======= Cintas decorativas (texto, no imágenes) ======= */
-    .ribbon {
-      margin: 4px 0 var(--gap);
-      border-top: var(--rule) solid #000;
-      border-bottom: var(--rule) solid #000;
-      padding: 3px 0;
-      text-align: center;
-      font-weight: 700;
-      letter-spacing: 1px;
+    /* Items */
+    .items{width:100%;}
+    .thead,.row{
+      display:grid;
+      grid-template-columns: 1fr 2.5ch 7ch; /* nombre | cant | importe */
+      gap:4px;
     }
-    .ribbon .mark { display: inline-block; padding: 0 6px; }
+    .thead{font-weight:700;border-bottom:1px solid #000;padding-bottom:1px;margin-bottom:2px;}
+    .qty,.amt{text-align:right;}
+    .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
 
-    /* Encabezado negocio */
-    .brand { margin-bottom: 2px; }
-    .brand-name { font-weight: 800; font-size: 15px; letter-spacing: .4px; }
-    .brand-aux  { margin-top: 1px; }
-
-    /* Badge de folio (sin rellenos sólidos) */
-    .badge {
-      display: inline-block;
-      border: 2px solid #000;
-      padding: 2px 6px;
-      border-radius: 6px;
-      font-weight: 800;
-      letter-spacing: .4px;
-      margin-left: 4px;
-    }
-
-    /* Separadores */
-    .rule { border: 0; border-top: var(--rule) solid #000; margin: var(--gap) 0; }
-
-    /* Sección meta */
-    .meta { margin-top: 2px; }
-
-    /* Tabla de ítems */
-    .items { width: 100%; margin-top: 4px; }
-    .thead { 
-      display: grid; 
-      grid-template-columns: 1fr 40px 70px; 
-      gap: 6px; 
-      font-weight: 800; 
-      padding-bottom: 2px; 
-      border-bottom: 2px solid #000;
-      margin-bottom: 4px;
-    }
-    .row  { display: grid; grid-template-columns: 1fr 40px 70px; gap: 6px; align-items: baseline; }
-    .qty, .amt { text-align: right; }
-    .sub  { margin-left: 8px; }
-
-    /* Totales con caja */
-    .totals {
-      margin-top: 6px;
-      border: 2px solid #000;
-      padding: 6px;
-      border-radius: 8px;
-    }
-    .tot-row { display: grid; grid-template-columns: 1fr 100px; }
-    .tot-row div:last-child { text-align: right; }
-    .grand { 
-      font-weight: 900; 
-      font-size: 14px; 
-      margin-top: 3px; 
-      border-top: 2px solid #000; 
-      padding-top: 4px;
-      letter-spacing: .4px;
-    }
-
-    /* Pie */
-    .thanks { margin-top: 8px; font-weight: 700; letter-spacing: .3px; }
-    .social { margin-top: 2px; }
-    .qr { display: block; margin: 8px auto 0; width: 140px; height: 140px; image-rendering: crisp-edges; }
-
-    @media print { .no-print { display: none !important; } }
-    @media screen {
-      body { background: #f6f6f6; }
-      .tkt { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08); }
-    }
+    /* Totales */
+    .totals{margin-top:2px;}
+    .tot-row{display:grid;grid-template-columns:1fr 7ch;}
+    .tot-row div:last-child{text-align:right;}
+    .grand{font-weight:800;font-size:12px;border-top:1px solid #000;margin-top:2px;padding-top:2px;}
   </style>
 </head>
 <body>
   <div class="tkt">
+    <div class="center bold">{{ negocio.nombre }}</div>
+    {% if negocio.direccion %}<div class="center small">{{ negocio.direccion }}</div>{% endif %}
+    {% if negocio.telefono %}<div class="center small">Tel: {{ negocio.telefono }}</div>{% endif %}
 
-    <div class="ribbon"><span class="mark">◆◆◆</span></div>
+    <hr class="rule">
 
-    <div class="center">
-      <div class="brand">
-        <div class="brand-name">{{ negocio.nombre }}</div>
-        {% if negocio.direccion %}<div class="small brand-aux">{{ negocio.direccion }}</div>{% endif %}
-        {% if negocio.telefono %}<div class="small brand-aux">Tel: {{ negocio.telefono }}</div>{% endif %}
-        {% if negocio.slogan %}<div class="small" style="margin-top:2px"><em>{{ negocio.slogan }}</em></div>{% endif %}
-      </div>
+    <div class="small">
+      Folio: <span class="bold">#{{ venta.id }}</span><br>
+      {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}
     </div>
 
-    <div class="rule"></div>
-
-    <div class="small meta">
-      <div>Folio <span class="badge">#{{ venta.id }}</span></div>
-      <div>Fecha: {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}</div>
-      {% if venta.cajero %}<div>Cajero: {{ venta.cajero }}</div>{% endif %}
-      {% if venta.metodo_pago %}<div>Método: {{ venta.metodo_pago }}</div>{% endif %}
-    </div>
-
-    <div class="rule"></div>
+    <hr class="rule">
 
     <div class="items">
       <div class="thead small">
-        <div>Producto</div>
-        <div class="qty">Cant.</div>
-        <div class="amt">Importe</div>
+        <div>Prod</div><div class="qty">C</div><div class="amt">Imp</div>
       </div>
-
       {% for it in lineas %}
-        <div class="row">
-          <div title="{{ it.nombre }}">{{ it.nombre }}</div>
-          <div class="qty">x{{ it.cantidad }}</div>
-          <div class="amt">${{ '%.2f' % it.importe }}</div>
-        </div>
-        <div class="small sub"> @ ${{ '%.2f' % it.pu }}</div>
+      <div class="row">
+        <div class="name">{{ it.nombre }}</div>
+        <div class="qty">{{ it.cantidad }}</div>
+        <div class="amt">${{ '%.2f' % it.importe }}</div>
+      </div>
       {% endfor %}
     </div>
 
-    <div class="rule"></div>
+    <hr class="rule">
 
-    <div class="totals">
-      <div class="tot-row small"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
+    <div class="totals small">
+      <div class="tot-row"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
       {% if descuento and descuento != 0 %}
-      <div class="tot-row small"><div>Descuento</div><div>-${{ '%.2f' % descuento }}</div></div>
+      <div class="tot-row"><div>Desc</div><div>-{{ '%.2f' % descuento }}</div></div>
       {% endif %}
       {% if redondeo and redondeo != 0 %}
-      <div class="tot-row small"><div>Redondeo</div><div>${{ '%.2f' % redondeo }}</div></div>
-      {% endif %}
-      {% if impuestos and impuestos != 0 %}
-      <div class="tot-row small"><div>Impuestos</div><div>${{ '%.2f' % impuestos }}</div></div>
-      {% endif %}
-      {% if venta.efectivo and venta.cambio is not none %}
-      <div class="tot-row small"><div>Efectivo</div><div>${{ '%.2f' % venta.efectivo }}</div></div>
-      <div class="tot-row small"><div>Cambio</div><div>${{ '%.2f' % venta.cambio }}</div></div>
+      <div class="tot-row"><div>Redondeo</div><div>{{ '%.2f' % redondeo }}</div></div>
       {% endif %}
       <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
     </div>
 
-    <div class="rule"></div>
+    <hr class="rule">
 
-    <div class="center small thanks">¡Gracias por su compra!</div>
-    {% if negocio.instagram or negocio.facebook %}
-      <div class="center small social">
-        {% if negocio.instagram %}@{{ negocio.instagram }}{% endif %}
-        {% if negocio.instagram and negocio.facebook %} • {% endif %}
-        {% if negocio.facebook %}{{ negocio.facebook }}{% endif %}
-      </div>
-    {% endif %}
-    {% if venta.qr_url %}<img class="qr" src="{{ venta.qr_url }}" alt="QR">{% endif %}
-
-    <div class="ribbon"><span class="mark">◆◆◆</span></div>
-
-    <div class="center no-print" style="margin-top:10px">
-      <button onclick="window.print()">Imprimir</button>
-      <a href="{{ url_for('venta') }}">Volver</a>
-    </div>
+    <div class="center small">¡Gracias por su compra!</div>
   </div>
 </body>
 </html>
