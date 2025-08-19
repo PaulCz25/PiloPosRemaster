@@ -4,7 +4,7 @@
   <meta charset="utf-8" />
   <title>Ticket {{ venta.id }}</title>
 
-  {% set compacto = True %}
+  {% set compacto = False %}   {# Ahora usamos tamaños más grandes #}
   {% set ahorro_tinta = True %}
   {% set mostrar_pu = False %}
   {% set mostrar_ribbon = True %}
@@ -20,10 +20,10 @@
       --paper: {{ ancho_rollo_mm }}mm;
       --edge: 3mm;
       --safe: calc(var(--paper) - (var(--edge)*2));
-      --fs-100: 11px;
-      --fs-200: 12px;
-      --fs-300: 13px;
-      --lh: 1.25;
+      --fs-100: 13px;   /* aumentamos tamaño base */
+      --fs-200: 14px;
+      --fs-300: 15px;
+      --lh: 1.35;
       --gap: 6px;
       --pad: 8px;
       --rule: 1.25px;
@@ -37,8 +37,8 @@
     body{
       width: var(--safe);
       margin: 0 auto;
-      font-family: system-ui, -apple-system, Segoe UI, Roboto, Inter, Arial, Helvetica, sans-serif;
-      font-size: {{ 'var(--fs-100)' if compacto else 'var(--fs-200)' }};
+      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;  /* fuente más nítida */
+      font-size: var(--fs-100);
       line-height: var(--lh);
       letter-spacing: .2px;
       color: #000;
@@ -93,9 +93,6 @@
 
     .coupon{ margin-top:6px; padding:6px; border: var(--ink) dotted #000; border-radius:8px; }
     .coupon .ttl{ font-weight:900; margin-bottom:2px; }
-
-    .cut{ margin-top:8px; font-size:10px; display:flex; align-items:center; gap:6px; }
-    .cut:before, .cut:after{ content:""; flex:1; border-top: var(--ink) dashed #000; }
 
     @media screen{
       body{ background:#f4f4f4; }
@@ -194,7 +191,7 @@
     {% endif %}
 
     {% if mostrar_legal %}
-      <div class="small" style="margin-top:6px; opacity:.85">
+      <div class="small" style="margin-top:6px; opacity:.9">
         Precios en MXN. Conserve su ticket para aclaraciones dentro de 48 horas. Garantías conforme a ley.
       </div>
     {% endif %}
@@ -202,8 +199,6 @@
     {% if mostrar_ribbon %}
       <div class="ribbon"><span class="mark">◆ ◆ ◆</span></div>
     {% endif %}
-
-    <div class="cut">✂ Recorte aquí</div>
 
     <div class="center no-print" style="margin-top:8px">
       <button onclick="window.print()">Imprimir</button>
