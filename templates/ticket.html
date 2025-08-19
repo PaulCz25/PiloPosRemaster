@@ -1,155 +1,131 @@
 <!doctype html>
 <html lang="es">
 <head>
-  <meta charset="utf-8" />
+  <meta charset="utf-8">
   <title>Ticket {{ venta.id }}</title>
-
-  {% set compacto = False %}   {# Ahora usamos tamaños más grandes #}
-  {% set ahorro_tinta = True %}
-  {% set mostrar_pu = False %}
-  {% set mostrar_ribbon = True %}
-  {% set mostrar_slogan = False %}
-  {% set mostrar_social = False %}
-  {% set mostrar_qr = False %}
-  {% set mostrar_legal = True %}
-  {% set mostrar_cupon = False %}
-  {% set ancho_rollo_mm = 80 %}
-
+  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
+    /* ====== Ajustes clave de calidad ====== */
     :root{
-      --paper: {{ ancho_rollo_mm }}mm;
-      --edge: 3mm;
-      --safe: calc(var(--paper) - (var(--edge)*2));
-      --fs-100: 13px;   /* aumentamos tamaño base */
-      --fs-200: 14px;
-      --fs-300: 15px;
-      --lh: 1.35;
-      --gap: 6px;
-      --pad: 8px;
-      --rule: 1.25px;
-      --ink: {{ '1px' if ahorro_tinta else '1.5px' }};
-      --dash: {{ '2,2' if ahorro_tinta else '0' }};
+      /* Cambia a 58mm si tu rollo es de 58: --paper: 58mm; */
+      --paper: 80mm;
+      --pad-x: 10px;
+      --pad-y: 8px;
+      --fs-base: 12px;
+      --fs-small: 11px;
+      --line: 1.35;
+      --ink: #000;
+      --muted: #111; /* más oscuro que gris para térmica */
+      --rule: 2px;   /* separadores más gruesos para no desvanecer */
     }
 
     @page { size: var(--paper) auto; margin: 0; }
     html, body { margin: 0; padding: 0; }
-
     body{
-      width: var(--safe);
+      width: var(--paper);
       margin: 0 auto;
-      font-family: "Helvetica Neue", Helvetica, Arial, sans-serif;  /* fuente más nítida */
-      font-size: var(--fs-100);
-      line-height: var(--lh);
-      letter-spacing: .2px;
-      color: #000;
-      font-weight: 500;
+      color: var(--ink);
+      /* Legibilidad en impresión */
+      -webkit-print-color-adjust: exact;
+      print-color-adjust: exact;
+      text-rendering: geometricPrecision;
+      -webkit-font-smoothing: antialiased;
+      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
+      font-size: var(--fs-base);
+      line-height: var(--line);
       font-variant-numeric: tabular-nums lining-nums;
-      -webkit-print-color-adjust: exact; print-color-adjust: exact;
-      box-sizing: border-box;
-      overflow-wrap: anywhere;
+      -webkit-text-size-adjust: 100%;
     }
 
-    .tkt { padding: var(--pad); box-sizing: border-box; }
-    h1,h2,h3,p,div,small { margin: 0; padding: 0; }
-    .center{ text-align:center; }
-    .right{ text-align:right; }
-    .bold{ font-weight: 800; }
-    .small{ font-size: var(--fs-100); opacity:.95; }
+    .tkt { padding: var(--pad-y) var(--pad-x); }
+    h1,h2,h3,p,div { margin: 0; padding: 0; }
+    .center { text-align: center; }
+    .right  { text-align: right; }
+    .bold   { font-weight: 700; }
+    .small  { font-size: var(--fs-small); }
+    .muted  { color: var(--muted); opacity: 0.95; }
 
-    .rule { border:0; border-top: var(--ink) solid #000; margin: calc(var(--gap) - 2px) 0; }
-    .rule--dash { border-top-style: dashed; border-top-width: var(--ink); border-top-color:#000; }
+    /* Separador más visible en térmica */
+    .rule { border: 0; border-top: var(--rule) solid var(--ink); margin: 8px 0; }
 
-    .brand{ margin-bottom: 2px; }
-    .brand-line{ display:flex; justify-content:center; align-items:baseline; gap:6px; }
-    .logo-dot{ font-weight:900; letter-spacing:.8px; }
-    .brand-name{ font-weight:900; font-size: var(--fs-300); letter-spacing:.3px; text-transform: uppercase; }
-    .tagline{ margin-top: 1px; font-style: italic; }
+    /* Encabezado */
+    .brand { margin-bottom: 4px; }
+    .brand-name { font-weight: 800; font-size: 14px; letter-spacing: .2px; }
+    .brand-aux  { margin-top: 2px; }
 
-    .badge{ display:inline-block; border: var(--ink) solid #000; padding: 1px 6px; border-radius: 6px; font-weight: 900; letter-spacing:.2px; white-space:nowrap; }
+    /* Info venta */
+    .meta { margin-top: 6px; }
 
-    .ribbon{ margin: 2px 0 var(--gap); padding: 2px 0; text-align:center; font-weight:900; letter-spacing:.8px; }
-    .ribbon:before, .ribbon:after{ content:""; display:inline-block; width:26%; height:0; border-top: var(--ink) dashed #000; vertical-align:middle; margin:0 6px; }
-    .ribbon .mark{ display:inline-block; }
+    /* Tabla de items */
+    .items { width: 100%; margin-top: 6px; }
+    .head, .row { display: grid; grid-template-columns: 1fr 38px 72px; column-gap: 6px; align-items: baseline; }
+    .head { font-weight: 700; }
+    .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+    .qty  { text-align: right; }
+    .amt  { text-align: right; }
+    .sub  { margin-left: 8px; }
 
-    .meta{ display:grid; grid-template-columns: auto 1fr; column-gap: 8px; row-gap:2px; }
-    .meta div{ grid-column: span 2; }
+    /* Totales */
+    .totals { margin-top: 6px; }
+    .tot-row { display: grid; grid-template-columns: 1fr 110px; column-gap: 6px; }
+    .tot-row div:last-child { text-align: right; }
+    .grand { font-weight: 800; font-size: 13px; padding-top: 2px; }
 
-    .items{ width:100%; margin-top: 3px; }
-    .thead, .row{ display:grid; grid-template-columns: 1fr auto auto; gap: 6px; align-items: baseline; }
-    .thead{ font-weight:900; padding-bottom:1px; border-bottom: var(--ink) solid #000; margin-bottom:3px; }
-    .qty, .amt{ text-align:right; }
+    /* Pie */
+    .thanks { margin-top: 8px; }
 
-    .name{ display:-webkit-box; -webkit-line-clamp:2; -webkit-box-orient:vertical; overflow:hidden; word-break:break-word; }
-    .sub{ margin-left: 6px; opacity:.9; }
+    /* Opcional: logo y QR si existen */
+    .logo { display: block; margin: 0 auto 4px; max-width: 60%; image-rendering: crisp-edges; }
+    .qr   { display: block; margin: 6px auto 0; width: 140px; height: 140px; image-rendering: crisp-edges; }
 
-    .totals{ margin-top:4px; border: var(--ink) dashed #000; padding: 6px; border-radius: 8px; }
-    .tot-row{ display:grid; grid-template-columns: 1fr auto; }
-    .tot-row > div:last-child{ text-align:right; }
-    .grand{ font-weight: 1000; font-size: var(--fs-300); margin-top:2px; border-top: var(--ink) solid #000; padding-top:3px; letter-spacing:.3px; }
-
-    .thanks{ margin-top: 6px; font-weight:900; letter-spacing:.2px; }
-    .social{ margin-top:2px; }
-    .qr{ display:block; margin:6px auto 0; width:120px; height:120px; image-rendering: crisp-edges; max-width:100%; }
-
-    .coupon{ margin-top:6px; padding:6px; border: var(--ink) dotted #000; border-radius:8px; }
-    .coupon .ttl{ font-weight:900; margin-bottom:2px; }
-
-    @media screen{
-      body{ background:#f4f4f4; }
-      .tkt{ background:#fff; box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 6px 18px rgba(0,0,0,.08); }
+    @media print { .no-print { display: none !important; } }
+    @media screen {
+      body { background: #f7f7f7; }
+      .tkt { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.08); }
     }
-    @media print{ .no-print{ display:none !important; } }
   </style>
 </head>
 <body>
   <div class="tkt">
-
-    {% if mostrar_ribbon %}
-      <div class="ribbon"><span class="mark">◆ ◆ ◆</span></div>
-    {% endif %}
-
-    <div class="center brand">
-      <div class="brand-line">
-        <span class="logo-dot">✦</span>
-        <span class="brand-name">{{ negocio.nombre }}</span>
-        <span class="logo-dot">✦</span>
+    <div class="center">
+      {% if negocio.logo_url %}
+        <img src="{{ negocio.logo_url }}" alt="Logo" class="logo">
+      {% endif %}
+      <div class="brand">
+        <div class="brand-name">{{ negocio.nombre }}</div>
+        {% if negocio.direccion %}<div class="small muted brand-aux">{{ negocio.direccion }}</div>{% endif %}
+        {% if negocio.telefono %}<div class="small muted brand-aux">Tel: {{ negocio.telefono }}</div>{% endif %}
       </div>
-      {% if negocio.direccion %}<div class="small">{{ negocio.direccion }}</div>{% endif %}
-      {% if negocio.telefono %}<div class="small">Tel: {{ negocio.telefono }}</div>{% endif %}
-      {% if mostrar_slogan and negocio.slogan %}<div class="small tagline">{{ negocio.slogan }}</div>{% endif %}
     </div>
 
-    <hr class="rule {{ 'rule--dash' if ahorro_tinta else '' }}" />
+    <hr class="rule">
 
     <div class="small meta">
-      <div>Folio <span class="badge">#{{ venta.id }}</span></div>
+      <div>Folio: <span class="bold">{{ venta.id }}</span></div>
       <div>Fecha: {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}</div>
       {% if venta.cajero %}<div>Cajero: {{ venta.cajero }}</div>{% endif %}
       {% if venta.metodo_pago %}<div>Método: {{ venta.metodo_pago }}</div>{% endif %}
     </div>
 
-    <hr class="rule {{ 'rule--dash' if ahorro_tinta else '' }}" />
+    <hr class="rule">
 
     <div class="items">
-      <div class="thead small">
+      <div class="head small">
         <div>Producto</div>
         <div class="qty">Cant.</div>
         <div class="amt">Importe</div>
       </div>
-
       {% for it in lineas %}
         <div class="row">
           <div class="name" title="{{ it.nombre }}">{{ it.nombre }}</div>
           <div class="qty">x{{ it.cantidad }}</div>
           <div class="amt">${{ '%.2f' % it.importe }}</div>
         </div>
-        {% if mostrar_pu %}
-          <div class="small sub">@ ${{ '%.2f' % it.pu }}</div>
-        {% endif %}
+        <div class="small muted sub"> @ ${{ '%.2f' % it.pu }}</div>
       {% endfor %}
     </div>
 
-    <hr class="rule {{ 'rule--dash' if ahorro_tinta else '' }}" />
+    <hr class="rule">
 
     <div class="totals">
       <div class="tot-row small"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
@@ -162,48 +138,34 @@
       {% if impuestos and impuestos != 0 %}
       <div class="tot-row small"><div>Impuestos</div><div>${{ '%.2f' % impuestos }}</div></div>
       {% endif %}
+      <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
       {% if venta.efectivo and venta.cambio is not none %}
       <div class="tot-row small"><div>Efectivo</div><div>${{ '%.2f' % venta.efectivo }}</div></div>
       <div class="tot-row small"><div>Cambio</div><div>${{ '%.2f' % venta.cambio }}</div></div>
       {% endif %}
-      <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
     </div>
+
+    <hr class="rule">
 
     <div class="center small thanks">¡Gracias por su compra!</div>
 
-    {% if mostrar_social and (negocio.instagram or negocio.facebook) %}
-      <div class="center small social">
-        {% if negocio.instagram %}@{{ negocio.instagram }}{% endif %}
-        {% if negocio.instagram and negocio.facebook %} • {% endif %}
-        {% if negocio.facebook %}{{ negocio.facebook }}{% endif %}
-      </div>
+    {% if venta.qr_url %}
+      <img class="qr" src="{{ venta.qr_url }}" alt="QR">
     {% endif %}
 
-    {% if mostrar_qr and venta.qr_url %}
-      <img class="qr" src="{{ venta.qr_url }}" alt="QR" />
-    {% endif %}
-
-    {% if mostrar_cupon %}
-      <div class="coupon small">
-        <div class="ttl">★ Recompensa</div>
-        Muestra este ticket en tu próxima visita y obtén <span class="bold">5% de descuento</span>.
-      </div>
-    {% endif %}
-
-    {% if mostrar_legal %}
-      <div class="small" style="margin-top:6px; opacity:.9">
-        Precios en MXN. Conserve su ticket para aclaraciones dentro de 48 horas. Garantías conforme a ley.
-      </div>
-    {% endif %}
-
-    {% if mostrar_ribbon %}
-      <div class="ribbon"><span class="mark">◆ ◆ ◆</span></div>
-    {% endif %}
-
-    <div class="center no-print" style="margin-top:8px">
+    <div class="center no-print" style="margin-top:10px">
       <button onclick="window.print()">Imprimir</button>
       <a href="{{ url_for('venta') }}">Volver</a>
     </div>
   </div>
+
+  <script>
+    // Impresión automática con ?print=1 y regreso a /venta
+    const u = new URL(location.href);
+    if (u.searchParams.get('print') === '1') {
+      window.addEventListener('load', () => window.print());
+      window.addEventListener('afterprint', () => location.href = "{{ url_for('venta') }}");
+    }
+  </script>
 </body>
 </html>
