@@ -3,100 +3,231 @@
 <head>
   <meta charset="utf-8">
   <title>Ticket {{ venta.id }}</title>
+  {% set compacto = True %}
+  {% set mostrar_pu = False %}
+  {% set mostrar_ribbon = True %}
+  {% set mostrar_slogan = False %}
+  {% set mostrar_social = False %}
+  {% set mostrar_qr = False %}
+
   <style>
     :root{
-      --paper: 58mm;           /* cámbialo a 80mm si tu rollo es de 80 */
-      --edge: 3mm;             /* margen seguro */
-      --safe: calc(var(--paper) - (var(--edge)*2));
-      --fs-base: 11px;
-      --fs-small: 10px;
-      --rule: 1px;
-      --gap: 4px;
+      --paper: 80mm;          /* 58mm si tu rollo es de 58 */
+      --edge: 3mm;            /* margen de seguridad físico: súbelo a 4–6mm si tu impresora recorta más */
+      --safe: calc(var(--paper) - (var(--edge)*2)); /* ancho imprimible seguro */
+      --fs-base: 12px;
+      --fs-small: 11px;
+      --rule: 1.5px;
+      --gap: 6px;
+      --pad: 8px;             /* padding interno del ticket */
     }
 
+    /* No ponemos márgenes en página; el “margen” real lo da --safe */
     @page { size: var(--paper) auto; margin: 0; }
-    html, body { margin:0; padding:0; }
+
+    html, body { margin: 0; padding: 0; }
     body{
-      width: var(--safe);
-      margin: 0 auto;
-      font-family: Arial, sans-serif;
+      width: var(--safe);          /* <<< ancho reducido para no tocar bordes del papel */
+      margin: 0 auto;              /* centra dentro del ancho del rollo */
+      font-family: Arial, Helvetica, sans-serif;
       font-size: var(--fs-base);
-      line-height: 1.2;
-      color:#000;
-      font-variant-numeric: tabular-nums;
+      line-height: 1.28;
+      letter-spacing: .2px;
+      color: #000;
+      font-weight: 500;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
+      font-variant-numeric: tabular-nums lining-nums;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;     /* evita desbordes raros */
     }
 
-    .tkt{ padding:4px; }
-    .center{text-align:center;}
-    .right{text-align:right;}
-    .bold{font-weight:700;}
-    .small{font-size:var(--fs-small);}
-    .rule{border:0;border-top:var(--rule) solid #000;margin:var(--gap) 0;}
+    .tkt { padding: var(--pad); box-sizing: border-box; }
+    h1,h2,h3,p,div { margin: 0; padding: 0; }
+    .center{ text-align: center; }
+    .right { text-align: right; }
+    .bold  { font-weight: 700; }
+    .small { font-size: var(--fs-small); }
 
-    /* Items */
-    .items{width:100%;}
-    .thead,.row{
-      display:grid;
-      grid-template-columns: 1fr 2.5ch 7ch; /* nombre | cant | importe */
-      gap:4px;
+    /* Cinta decorativa (opcional) */
+    .ribbon{
+      margin: 3px 0 var(--gap);
+      border-top: var(--rule) solid #000;
+      border-bottom: var(--rule) solid #000;
+      padding: 2px 0;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: .8px;
     }
-    .thead{font-weight:700;border-bottom:1px solid #000;padding-bottom:1px;margin-bottom:2px;}
-    .qty,.amt{text-align:right;}
-    .name{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;}
+    .ribbon .mark{ display:inline-block; padding:0 4px; }
 
-    /* Totales */
-    .totals{margin-top:2px;}
-    .tot-row{display:grid;grid-template-columns:1fr 7ch;}
-    .tot-row div:last-child{text-align:right;}
-    .grand{font-weight:800;font-size:12px;border-top:1px solid #000;margin-top:2px;padding-top:2px;}
+    /* Encabezado */
+    .brand { margin-bottom: 1px; }
+    .brand-name{ font-weight: 800; font-size: 14px; letter-spacing:.3px; }
+    .brand-aux { margin-top: 1px; }
+
+    /* Badge folio */
+    .badge{
+      display:inline-block;
+      border: 1.5px solid #000;
+      padding: 1px 5px;
+      border-radius: 6px;
+      font-weight: 800;
+      letter-spacing: .3px;
+      margin-left: 4px;
+      white-space: nowrap;
+    }
+
+    .rule{ border:0; border-top: var(--rule) solid #000; margin: var(--gap) 0; }
+
+    /* Tabla compacta: ajustamos aún más las columnas para el nuevo ancho */
+    .items{ width:100%; margin-top: 4px; }
+    .thead, .row{
+      display: grid;
+      grid-template-columns: 1fr 3ch 8.5ch; /* nombre | cant | importe (más compactos) */
+      gap: 6px;
+      align-items: baseline;
+    }
+    .thead{
+      font-weight: 800;
+      padding-bottom: 1px;
+      border-bottom: 1.5px solid #000;
+      margin-bottom: 3px;
+    }
+    .qty, .amt{ text-align: right; }
+
+    .name{
+      display: -webkit-box;
+      -webkit-line-clamp: 2;
+      -webkit-box-orient: vertical;
+      overflow: hidden;
+      word-break: break-word;
+    }
+
+    .sub { margin-left: 6px; }
+
+    .totals{
+      margin-top: 4px;
+      border: 1.5px solid #000;
+      padding: 5px;
+      border-radius: 6px;
+    }
+    .tot-row{ display:grid; grid-template-columns: 1fr 8.5ch; } /* igual que Importe */
+    .tot-row div:last-child{ text-align:right; }
+    .grand{
+      font-weight: 900;
+      font-size: 13px;
+      margin-top: 2px;
+      border-top: 1.5px solid #000;
+      padding-top: 3px;
+      letter-spacing: .3px;
+    }
+
+    .thanks{ margin-top: 6px; font-weight: 700; letter-spacing: .2px; }
+
+    .qr{
+      display:block; margin:6px auto 0;
+      width:120px; height:120px; image-rendering: crisp-edges;
+      max-width: 100%;
+    }
+
+    @media print { .no-print { display: none !important; } }
+    @media screen {
+      body { background:#f4f4f4; }
+      .tkt { background:#fff; box-shadow: 0 0 0 1px rgba(0,0,0,.07), 0 6px 18px rgba(0,0,0,.08); }
+    }
   </style>
 </head>
 <body>
   <div class="tkt">
-    <div class="center bold">{{ negocio.nombre }}</div>
-    {% if negocio.direccion %}<div class="center small">{{ negocio.direccion }}</div>{% endif %}
-    {% if negocio.telefono %}<div class="center small">Tel: {{ negocio.telefono }}</div>{% endif %}
+
+    {% if mostrar_ribbon %}
+      <div class="ribbon"><span class="mark">◆◆</span></div>
+    {% endif %}
+
+    <div class="center">
+      <div class="brand">
+        <div class="brand-name">{{ negocio.nombre }}</div>
+        {% if negocio.direccion %}<div class="small brand-aux">{{ negocio.direccion }}</div>{% endif %}
+        {% if negocio.telefono %}<div class="small brand-aux">Tel: {{ negocio.telefono }}</div>{% endif %}
+        {% if mostrar_slogan and negocio.slogan %}<div class="small" style="margin-top:1px"><em>{{ negocio.slogan }}</em></div>{% endif %}
+      </div>
+    </div>
 
     <hr class="rule">
 
-    <div class="small">
-      Folio: <span class="bold">#{{ venta.id }}</span><br>
-      {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}
+    <div class="small meta">
+      <div>Folio <span class="badge">#{{ venta.id }}</span></div>
+      <div>Fecha: {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}</div>
+      {% if venta.cajero %}<div>Cajero: {{ venta.cajero }}</div>{% endif %}
+      {% if venta.metodo_pago %}<div>Método: {{ venta.metodo_pago }}</div>{% endif %}
     </div>
 
     <hr class="rule">
 
     <div class="items">
       <div class="thead small">
-        <div>Prod</div><div class="qty">C</div><div class="amt">Imp</div>
+        <div>Producto</div>
+        <div class="qty">C</div>
+        <div class="amt">Importe</div>
       </div>
+
       {% for it in lineas %}
-      <div class="row">
-        <div class="name">{{ it.nombre }}</div>
-        <div class="qty">{{ it.cantidad }}</div>
-        <div class="amt">${{ '%.2f' % it.importe }}</div>
-      </div>
+        <div class="row">
+          <div class="name" title="{{ it.nombre }}">{{ it.nombre }}</div>
+          <div class="qty">{{ it.cantidad }}</div>
+          <div class="amt">${{ '%.2f' % it.importe }}</div>
+        </div>
+        {% if mostrar_pu %}
+          <div class="small sub"> @ ${{ '%.2f' % it.pu }}</div>
+        {% endif %}
       {% endfor %}
     </div>
 
     <hr class="rule">
 
-    <div class="totals small">
-      <div class="tot-row"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
+    <div class="totals">
+      <div class="tot-row small"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
       {% if descuento and descuento != 0 %}
-      <div class="tot-row"><div>Desc</div><div>-{{ '%.2f' % descuento }}</div></div>
+      <div class="tot-row small"><div>Descuento</div><div>-${{ '%.2f' % descuento }}</div></div>
       {% endif %}
       {% if redondeo and redondeo != 0 %}
-      <div class="tot-row"><div>Redondeo</div><div>{{ '%.2f' % redondeo }}</div></div>
+      <div class="tot-row small"><div>Redondeo</div><div>${{ '%.2f' % redondeo }}</div></div>
+      {% endif %}
+      {% if impuestos and impuestos != 0 %}
+      <div class="tot-row small"><div>Impuestos</div><div>${{ '%.2f' % impuestos }}</div></div>
+      {% endif %}
+      {% if venta.efectivo and venta.cambio is not none %}
+      <div class="tot-row small"><div>Efectivo</div><div>${{ '%.2f' % venta.efectivo }}</div></div>
+      <div class="tot-row small"><div>Cambio</div><div>${{ '%.2f' % venta.cambio }}</div></div>
       {% endif %}
       <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
     </div>
 
     <hr class="rule">
 
-    <div class="center small">¡Gracias por su compra!</div>
+    <div class="center small thanks">¡Gracias por su compra!</div>
+
+    {% if mostrar_social and (negocio.instagram or negocio.facebook) %}
+      <div class="center small" style="margin-top:2px">
+        {% if negocio.instagram %}@{{ negocio.instagram }}{% endif %}
+        {% if negocio.instagram and negocio.facebook %} • {% endif %}
+        {% if negocio.facebook %}{{ negocio.facebook }}{% endif %}
+      </div>
+    {% endif %}
+
+    {% if mostrar_qr and venta.qr_url %}
+      <img class="qr" src="{{ venta.qr_url }}" alt="QR">
+    {% endif %}
+
+    {% if mostrar_ribbon %}
+      <div class="ribbon"><span class="mark">◆◆</span></div>
+    {% endif %}
+
+    <div class="center no-print" style="margin-top:8px">
+      <button onclick="window.print()">Imprimir</button>
+      <a href="{{ url_for('venta') }}">Volver</a>
+    </div>
   </div>
 </body>
 </html>
