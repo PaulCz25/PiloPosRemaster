@@ -3,20 +3,13 @@
 <head>
   <meta charset="utf-8">
   <title>Ticket {{ venta.id }}</title>
-  <meta name="viewport" content="width=device-width, initial-scale=1">
   <style>
-    /* ====== Ajustes clave de calidad ====== */
-    :root{
-      /* Cambia a 58mm si tu rollo es de 58: --paper: 58mm; */
-      --paper: 80mm;
-      --pad-x: 10px;
-      --pad-y: 8px;
-      --fs-base: 12px;
-      --fs-small: 11px;
-      --line: 1.35;
-      --ink: #000;
-      --muted: #111; /* más oscuro que gris para térmica */
-      --rule: 2px;   /* separadores más gruesos para no desvanecer */
+    :root {
+      --paper: 80mm; /* 58mm si tu rollo es de 58 */
+      --fs-base: 13px;
+      --fs-small: 12px;
+      --rule: 2px;   /* grosor líneas */
+      --gap: 8px;
     }
 
     @page { size: var(--paper) auto; margin: 0; }
@@ -24,108 +17,145 @@
     body{
       width: var(--paper);
       margin: 0 auto;
-      color: var(--ink);
-      /* Legibilidad en impresión */
+      font-family: Arial, Helvetica, sans-serif;
+      font-size: var(--fs-base);
+      letter-spacing: .3px;     /* mejora nitidez en térmica */
+      line-height: 1.4;
+      color: #000;
+      font-weight: 500;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      text-rendering: geometricPrecision;
-      -webkit-font-smoothing: antialiased;
-      font-family: system-ui, -apple-system, "Segoe UI", Roboto, Arial, sans-serif;
-      font-size: var(--fs-base);
-      line-height: var(--line);
-      font-variant-numeric: tabular-nums lining-nums;
-      -webkit-text-size-adjust: 100%;
     }
 
-    .tkt { padding: var(--pad-y) var(--pad-x); }
+    .tkt { padding: 10px; }
     h1,h2,h3,p,div { margin: 0; padding: 0; }
     .center { text-align: center; }
     .right  { text-align: right; }
     .bold   { font-weight: 700; }
     .small  { font-size: var(--fs-small); }
-    .muted  { color: var(--muted); opacity: 0.95; }
 
-    /* Separador más visible en térmica */
-    .rule { border: 0; border-top: var(--rule) solid var(--ink); margin: 8px 0; }
+    /* ======= Cintas decorativas (texto, no imágenes) ======= */
+    .ribbon {
+      margin: 4px 0 var(--gap);
+      border-top: var(--rule) solid #000;
+      border-bottom: var(--rule) solid #000;
+      padding: 3px 0;
+      text-align: center;
+      font-weight: 700;
+      letter-spacing: 1px;
+    }
+    .ribbon .mark { display: inline-block; padding: 0 6px; }
 
-    /* Encabezado */
-    .brand { margin-bottom: 4px; }
-    .brand-name { font-weight: 800; font-size: 14px; letter-spacing: .2px; }
-    .brand-aux  { margin-top: 2px; }
+    /* Encabezado negocio */
+    .brand { margin-bottom: 2px; }
+    .brand-name { font-weight: 800; font-size: 15px; letter-spacing: .4px; }
+    .brand-aux  { margin-top: 1px; }
 
-    /* Info venta */
-    .meta { margin-top: 6px; }
+    /* Badge de folio (sin rellenos sólidos) */
+    .badge {
+      display: inline-block;
+      border: 2px solid #000;
+      padding: 2px 6px;
+      border-radius: 6px;
+      font-weight: 800;
+      letter-spacing: .4px;
+      margin-left: 4px;
+    }
 
-    /* Tabla de items */
-    .items { width: 100%; margin-top: 6px; }
-    .head, .row { display: grid; grid-template-columns: 1fr 38px 72px; column-gap: 6px; align-items: baseline; }
-    .head { font-weight: 700; }
-    .name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-    .qty  { text-align: right; }
-    .amt  { text-align: right; }
+    /* Separadores */
+    .rule { border: 0; border-top: var(--rule) solid #000; margin: var(--gap) 0; }
+
+    /* Sección meta */
+    .meta { margin-top: 2px; }
+
+    /* Tabla de ítems */
+    .items { width: 100%; margin-top: 4px; }
+    .thead { 
+      display: grid; 
+      grid-template-columns: 1fr 40px 70px; 
+      gap: 6px; 
+      font-weight: 800; 
+      padding-bottom: 2px; 
+      border-bottom: 2px solid #000;
+      margin-bottom: 4px;
+    }
+    .row  { display: grid; grid-template-columns: 1fr 40px 70px; gap: 6px; align-items: baseline; }
+    .qty, .amt { text-align: right; }
     .sub  { margin-left: 8px; }
 
-    /* Totales */
-    .totals { margin-top: 6px; }
-    .tot-row { display: grid; grid-template-columns: 1fr 110px; column-gap: 6px; }
+    /* Totales con caja */
+    .totals {
+      margin-top: 6px;
+      border: 2px solid #000;
+      padding: 6px;
+      border-radius: 8px;
+    }
+    .tot-row { display: grid; grid-template-columns: 1fr 100px; }
     .tot-row div:last-child { text-align: right; }
-    .grand { font-weight: 800; font-size: 13px; padding-top: 2px; }
+    .grand { 
+      font-weight: 900; 
+      font-size: 14px; 
+      margin-top: 3px; 
+      border-top: 2px solid #000; 
+      padding-top: 4px;
+      letter-spacing: .4px;
+    }
 
     /* Pie */
-    .thanks { margin-top: 8px; }
-
-    /* Opcional: logo y QR si existen */
-    .logo { display: block; margin: 0 auto 4px; max-width: 60%; image-rendering: crisp-edges; }
-    .qr   { display: block; margin: 6px auto 0; width: 140px; height: 140px; image-rendering: crisp-edges; }
+    .thanks { margin-top: 8px; font-weight: 700; letter-spacing: .3px; }
+    .social { margin-top: 2px; }
+    .qr { display: block; margin: 8px auto 0; width: 140px; height: 140px; image-rendering: crisp-edges; }
 
     @media print { .no-print { display: none !important; } }
     @media screen {
-      body { background: #f7f7f7; }
-      .tkt { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 10px 30px rgba(0,0,0,.08); }
+      body { background: #f6f6f6; }
+      .tkt { background: #fff; box-shadow: 0 0 0 1px rgba(0,0,0,.06), 0 8px 24px rgba(0,0,0,.08); }
     }
   </style>
 </head>
 <body>
   <div class="tkt">
+
+    <div class="ribbon"><span class="mark">◆◆◆</span></div>
+
     <div class="center">
-      {% if negocio.logo_url %}
-        <img src="{{ negocio.logo_url }}" alt="Logo" class="logo">
-      {% endif %}
       <div class="brand">
         <div class="brand-name">{{ negocio.nombre }}</div>
-        {% if negocio.direccion %}<div class="small muted brand-aux">{{ negocio.direccion }}</div>{% endif %}
-        {% if negocio.telefono %}<div class="small muted brand-aux">Tel: {{ negocio.telefono }}</div>{% endif %}
+        {% if negocio.direccion %}<div class="small brand-aux">{{ negocio.direccion }}</div>{% endif %}
+        {% if negocio.telefono %}<div class="small brand-aux">Tel: {{ negocio.telefono }}</div>{% endif %}
+        {% if negocio.slogan %}<div class="small" style="margin-top:2px"><em>{{ negocio.slogan }}</em></div>{% endif %}
       </div>
     </div>
 
-    <hr class="rule">
+    <div class="rule"></div>
 
     <div class="small meta">
-      <div>Folio: <span class="bold">{{ venta.id }}</span></div>
+      <div>Folio <span class="badge">#{{ venta.id }}</span></div>
       <div>Fecha: {{ venta.fecha }}{% if venta.hora %} {{ venta.hora }}{% endif %}</div>
       {% if venta.cajero %}<div>Cajero: {{ venta.cajero }}</div>{% endif %}
       {% if venta.metodo_pago %}<div>Método: {{ venta.metodo_pago }}</div>{% endif %}
     </div>
 
-    <hr class="rule">
+    <div class="rule"></div>
 
     <div class="items">
-      <div class="head small">
+      <div class="thead small">
         <div>Producto</div>
         <div class="qty">Cant.</div>
         <div class="amt">Importe</div>
       </div>
+
       {% for it in lineas %}
         <div class="row">
-          <div class="name" title="{{ it.nombre }}">{{ it.nombre }}</div>
+          <div title="{{ it.nombre }}">{{ it.nombre }}</div>
           <div class="qty">x{{ it.cantidad }}</div>
           <div class="amt">${{ '%.2f' % it.importe }}</div>
         </div>
-        <div class="small muted sub"> @ ${{ '%.2f' % it.pu }}</div>
+        <div class="small sub"> @ ${{ '%.2f' % it.pu }}</div>
       {% endfor %}
     </div>
 
-    <hr class="rule">
+    <div class="rule"></div>
 
     <div class="totals">
       <div class="tot-row small"><div>Subtotal</div><div>${{ '%.2f' % subtotal }}</div></div>
@@ -138,34 +168,31 @@
       {% if impuestos and impuestos != 0 %}
       <div class="tot-row small"><div>Impuestos</div><div>${{ '%.2f' % impuestos }}</div></div>
       {% endif %}
-      <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
       {% if venta.efectivo and venta.cambio is not none %}
       <div class="tot-row small"><div>Efectivo</div><div>${{ '%.2f' % venta.efectivo }}</div></div>
       <div class="tot-row small"><div>Cambio</div><div>${{ '%.2f' % venta.cambio }}</div></div>
       {% endif %}
+      <div class="tot-row grand"><div>Total</div><div>${{ '%.2f' % venta.total }}</div></div>
     </div>
 
-    <hr class="rule">
+    <div class="rule"></div>
 
     <div class="center small thanks">¡Gracias por su compra!</div>
-
-    {% if venta.qr_url %}
-      <img class="qr" src="{{ venta.qr_url }}" alt="QR">
+    {% if negocio.instagram or negocio.facebook %}
+      <div class="center small social">
+        {% if negocio.instagram %}@{{ negocio.instagram }}{% endif %}
+        {% if negocio.instagram and negocio.facebook %} • {% endif %}
+        {% if negocio.facebook %}{{ negocio.facebook }}{% endif %}
+      </div>
     {% endif %}
+    {% if venta.qr_url %}<img class="qr" src="{{ venta.qr_url }}" alt="QR">{% endif %}
+
+    <div class="ribbon"><span class="mark">◆◆◆</span></div>
 
     <div class="center no-print" style="margin-top:10px">
       <button onclick="window.print()">Imprimir</button>
       <a href="{{ url_for('venta') }}">Volver</a>
     </div>
   </div>
-
-  <script>
-    // Impresión automática con ?print=1 y regreso a /venta
-    const u = new URL(location.href);
-    if (u.searchParams.get('print') === '1') {
-      window.addEventListener('load', () => window.print());
-      window.addEventListener('afterprint', () => location.href = "{{ url_for('venta') }}");
-    }
-  </script>
 </body>
 </html>
