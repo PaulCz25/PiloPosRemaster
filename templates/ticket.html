@@ -4,7 +4,7 @@
   <meta charset="utf-8">
   <title>Ticket {{ venta.id }}</title>
   {% set compacto = True %}
-  {% set mostrar_pu = False %}          {# mostrar precio unitario por línea #}
+  {% set mostrar_pu = False %}
   {% set mostrar_ribbon = True %}
   {% set mostrar_slogan = False %}
   {% set mostrar_social = False %}
@@ -12,19 +12,23 @@
 
   <style>
     :root{
-      --paper: 80mm;              /* cambia a 58mm si tu rollo es de 58 */
-      --fs-base: 12px;            /* compacto: 12px */
-      --fs-small: 11px;           /* compacto: 11px */
-      --rule: 1.5px;              /* líneas un poco más delgadas */
-      --gap: 6px;                 /* espacios verticales más cortos */
-      --pad: 8px;                 /* menos padding */
+      --paper: 80mm;          /* 58mm si tu rollo es de 58 */
+      --edge: 3mm;            /* margen de seguridad físico: súbelo a 4–6mm si tu impresora recorta más */
+      --safe: calc(var(--paper) - (var(--edge)*2)); /* ancho imprimible seguro */
+      --fs-base: 12px;
+      --fs-small: 11px;
+      --rule: 1.5px;
+      --gap: 6px;
+      --pad: 8px;             /* padding interno del ticket */
     }
 
+    /* No ponemos márgenes en página; el “margen” real lo da --safe */
     @page { size: var(--paper) auto; margin: 0; }
+
     html, body { margin: 0; padding: 0; }
     body{
-      width: var(--paper);
-      margin: 0 auto;
+      width: var(--safe);          /* <<< ancho reducido para no tocar bordes del papel */
+      margin: 0 auto;              /* centra dentro del ancho del rollo */
       font-family: Arial, Helvetica, sans-serif;
       font-size: var(--fs-base);
       line-height: 1.28;
@@ -33,17 +37,19 @@
       font-weight: 500;
       -webkit-print-color-adjust: exact;
       print-color-adjust: exact;
-      font-variant-numeric: tabular-nums lining-nums; /* alinea importes/mejor lectura */
+      font-variant-numeric: tabular-nums lining-nums;
+      box-sizing: border-box;
+      overflow-wrap: anywhere;     /* evita desbordes raros */
     }
 
-    .tkt { padding: var(--pad); }
+    .tkt { padding: var(--pad); box-sizing: border-box; }
     h1,h2,h3,p,div { margin: 0; padding: 0; }
     .center{ text-align: center; }
     .right { text-align: right; }
     .bold  { font-weight: 700; }
     .small { font-size: var(--fs-small); }
 
-    /* Cinta decorativa compacta (solo si se activa) */
+    /* Cinta decorativa (opcional) */
     .ribbon{
       margin: 3px 0 var(--gap);
       border-top: var(--rule) solid #000;
@@ -69,20 +75,16 @@
       font-weight: 800;
       letter-spacing: .3px;
       margin-left: 4px;
+      white-space: nowrap;
     }
 
-    /* Reglas / separadores */
     .rule{ border:0; border-top: var(--rule) solid #000; margin: var(--gap) 0; }
 
-    /* Meta */
-    .meta{ margin-top: 1px; }
-
-    /* Tabla compacta */
+    /* Tabla compacta: ajustamos aún más las columnas para el nuevo ancho */
     .items{ width:100%; margin-top: 4px; }
-    /* Usamos ch para columnas justas (tabular-nums ayuda) */
     .thead, .row{
       display: grid;
-      grid-template-columns: 1fr 3.2ch 9ch; /* nombre | cant | importe */
+      grid-template-columns: 1fr 3ch 8.5ch; /* nombre | cant | importe (más compactos) */
       gap: 6px;
       align-items: baseline;
     }
@@ -94,7 +96,6 @@
     }
     .qty, .amt{ text-align: right; }
 
-    /* Nombre a 2 líneas máx para ahorrar alto sin cortar lo importante */
     .name{
       display: -webkit-box;
       -webkit-line-clamp: 2;
@@ -103,17 +104,15 @@
       word-break: break-word;
     }
 
-    /* Fila secundaria (PU) muy compacta */
     .sub { margin-left: 6px; }
 
-    /* Totales: caja más angosta */
     .totals{
       margin-top: 4px;
       border: 1.5px solid #000;
       padding: 5px;
       border-radius: 6px;
     }
-    .tot-row{ display:grid; grid-template-columns: 1fr 9ch; }
+    .tot-row{ display:grid; grid-template-columns: 1fr 8.5ch; } /* igual que Importe */
     .tot-row div:last-child{ text-align:right; }
     .grand{
       font-weight: 900;
@@ -129,6 +128,7 @@
     .qr{
       display:block; margin:6px auto 0;
       width:120px; height:120px; image-rendering: crisp-edges;
+      max-width: 100%;
     }
 
     @media print { .no-print { display: none !important; } }
