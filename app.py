@@ -4,11 +4,24 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
 
-# === Config persistencia (Opción 1: SQLite + Disco Persistente) ===
-# DATA_DIR apunta al disco persistente en Render (p. ej., /var/data)
-DATA_DIR = os.getenv("DATA_DIR", "/var/data")
-os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
-os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
+# === Persistencia segura con Postgres/SQLite ===
+# Si hay DATABASE_URL => usamos Postgres (no crear /var/data).
+# Si NO hay DATABASE_URL => SQLite y sí creamos /var/data (requiere Disk en Render).
+USE_POSTGRES = bool(os.getenv("DATABASE_URL"))
+
+if USE_POSTGRES:
+    # Carpeta temporal solo para exports JSON/tickets (no persistente, suficiente en Postgres)
+    DATA_DIR = os.getenv("DATA_DIR", "/tmp/pilopos")
+else:
+    DATA_DIR = os.getenv("DATA_DIR", "/var/data")
+
+# Crear carpetas; si /var/data no existe y no hay Disk, ignora el error
+try:
+    os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
+    os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
+except PermissionError:
+    # En Render sin Disk, /var/data no es escribible. Con Postgres usamos /tmp.
+    pass
 
 # WebSockets en Flask
 from flask_socketio import SocketIO, join_room, emit
@@ -17,7 +30,7 @@ from flask_socketio import SocketIO, join_room, emit
 # Puedes sobreescribirla en Render con la env var APP_TZ
 LOCAL_TZ = ZoneInfo(os.getenv("APP_TZ", "America/Tijuana"))
 
-# Adaptadores SQLite
+# Adaptadores de datos (tu store.py y db.py)
 from store import (
     proveedores_listar, proveedores_guardar, proveedores_eliminar,
     productos_listar, productos_guardar, productos_eliminar,
@@ -79,7 +92,7 @@ def export_productos_json():
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    # Persistir en disco persistente
+    # Persistir en disco (temporal en Postgres, persistente si usas Disk con SQLite)
     out_dir = os.path.join(DATA_DIR, 'static')
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, 'productos.json'), 'w', encoding='utf-8') as f:
@@ -133,7 +146,7 @@ def export_historial_json():
                 'productos': list(resumen.values())
             })
 
-    # Persistir en disco persistente
+    # Persistir en disco (temporal en Postgres)
     with open(os.path.join(DATA_DIR, 'historial.json'), 'w', encoding='utf-8') as f:
         json.dump(items_salida, f, ensure_ascii=False, indent=4)
 
@@ -313,6 +326,7 @@ def guardar_producto():
     data = request.get_json() or {}
     codigo = data.get('codigo')
     nombre = data.get('nombre')
+    # 🔧 FIX de comillas:
     precio = float(data.get('precio'))
     cantidad = int(data.get('cantidad'))
     seccion = data.get('seccion', '')

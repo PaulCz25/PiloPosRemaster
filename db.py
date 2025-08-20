@@ -1,4 +1,3 @@
-
 # db.py - Adaptador de base de datos para PilotoPOS
 # - Usa SQLite por defecto en /var/data/pilotopos.db
 # - Si existe DATABASE_URL (PostgreSQL), se conecta a Postgres y adapta las consultas con placeholders "?"
@@ -24,21 +23,56 @@ if using_postgres():
             return self._cur.fetchall()
         def fetchone(self):
             return self._cur.fetchone()
+        @property
+        def rowcount(self):
+            # necesario para checks como: if cur and cur.rowcount > 0:
+            return getattr(self._cur, "rowcount", -1)
+        def __getattr__(self, name):
+            return getattr(self._cur, name)
 
     class _PgConn:
         """Envuelve psycopg2 para imitar el API mínimo de sqlite3.Connection usado en el proyecto."""
         def __init__(self):
+            # Forzamos SSL; si ya viene en la URL no estorba.
             self._conn = psycopg2.connect(DATABASE_URL, sslmode="require")
         def __enter__(self):
             return self
         def __exit__(self, exc_type, exc, tb):
-            if exc_type:
-                self._conn.rollback()
-            else:
-                self._conn.commit()
-            self._conn.close()
+            try:
+                if exc_type:
+                    self._conn.rollback()
+                else:
+                    self._conn.commit()
+            finally:
+                self._conn.close()
+
         def execute(self, sql: str, params=None):
-            sql2, params2 = _normalize_sql(sql, params or [])
+            """
+            Soporta:
+              - placeholders de SQLite (?) → %s
+              - json(?) → %s::jsonb
+              - BEGIN/COMMIT/ROLLBACK enviados como SQL
+            Devuelve un cursor wrapper compatible con fetchone/fetchall/rowcount.
+            """
+            if params is None:
+                params = []
+
+            # Normaliza SQL y parámetros para Postgres
+            sql2, params2 = _normalize_sql(sql, params)
+
+            # Manejo especial de transacciones si vienen como SQL
+            upper = sql2.strip().upper()
+            if upper == "BEGIN":
+                with self._conn.cursor() as c:
+                    c.execute("BEGIN")
+                return _PgCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+            if upper == "COMMIT":
+                self._conn.commit()
+                return _PgCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+            if upper == "ROLLBACK":
+                self._conn.rollback()
+                return _PgCursorWrapper(self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor))
+
             cur = self._conn.cursor(cursor_factory=psycopg2.extras.RealDictCursor)
             cur.execute(sql2, params2)
             return _PgCursorWrapper(cur)
@@ -65,7 +99,7 @@ if using_postgres():
 
     def init_db():
         # En Postgres no ejecutamos schema.sql (es de SQLite).
-        # Usa el archivo schema_postgres.sql para crear las tablas.
+        # Usa el archivo schema_postgres.sql para crear las tablas (ya lo cargaste desde DBeaver).
         pass
 
 # ------------------------- SQLite -------------------------
