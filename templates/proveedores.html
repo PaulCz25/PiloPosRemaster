@@ -3,68 +3,76 @@
 <head>
   <meta charset="UTF-8" />
   <title>PilotoPOS – Proveedores</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card { background: #fff; border-radius: 1rem; box-shadow: 0 2px 8px rgba(0,0,0,.06); padding: 1.25rem; }
-    .input, .select, .textarea {
-      border: 1px solid rgba(14,116,144,.18);
-      border-radius: .75rem; padding: .6rem .85rem; outline: none;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
+    :root{
+      --brand-600:#0891b2; --brand-900:#0e7490; --ok:#059669; --border:#e2e8f0;
+      --ink:#0f172a;
     }
-    .input:focus, .select:focus, .textarea:focus {
-      border-color: rgb(14 116 144);
-      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
+    body { font-family: 'Inter', system-ui, -apple-system, Segoe UI, Roboto, 'Helvetica Neue', Arial; background:linear-gradient(180deg,#f6fbff,#fff); color:var(--ink); }
+
+    /* === Estilos del HEAD iguales a Historial === */
+    .glass{ background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.7)); border:1px solid rgba(14,116,144,.12); border-radius:1rem; backdrop-filter:saturate(160%) blur(8px); }
+    .btn{
+      display:inline-flex; align-items:center; justify-content:center; gap:.5rem;
+      border-radius:.65rem; font-weight:700; padding:.6rem .9rem; font-size:.9rem;
+      border:1px solid #e2e8f0; background:#f1f5f9; color:var(--brand-600);
+      transition: background-color .15s ease, border-color .15s ease;
     }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.75rem; font-weight:600; padding:.55rem .9rem; }
+    .btn:hover{ background:#e2e8f0; }
+    .btn-primary{ background:var(--brand-600); color:#fff; border-color:var(--brand-600); }
+    .btn-primary:hover{ background:#0c819e; border-color:#0c819e; }
+
+    /* === Estilos ya existentes de tu página (sin cambios) === */
+    .card { background: #fff; border-radius: 1rem; border:1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,.04); padding: 1.25rem; }
+    .input, .select, .textarea { border: 1px solid rgba(14,116,144,.18); border-radius: .75rem; padding: .6rem .85rem; outline: none; box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .input:focus, .select:focus, .textarea:focus { border-color: rgb(14 116 144); box-shadow: 0 0 0 4px rgba(14,116,144,.15); }
     .btn-prim { background:#0ea5a4; color:#fff; }
     .btn-warn { background:#f59e0b; color:#fff; }
     .btn-danger { background:#ef4444; color:#fff; }
-    .btn-ghost { background:#f3f4f6; color:#111827; }
+    .btn-ghost { background:#f3f4f6; color:#111827; border:1px solid var(--border); }
     .btn:hover { filter: brightness(1.02); transform: translateY(-1px); }
-    .table-wrap { overflow:auto; }
+    .table-wrap { overflow:auto; border:1px solid var(--border); border-radius: .9rem; }
     thead th { position: sticky; top: 0; z-index: 1; background:#ecfeff; color:#0e7490; border-bottom:1px solid rgba(14,116,144,.15); }
     tbody tr:hover { background:#fafafa; }
     .modal-backdrop { position:fixed; inset:0; background:rgba(0,0,0,.5); display:none; align-items:center; justify-content:center; z-index:50; }
     .modal { background:#fff; border-radius:1rem; padding:1rem; width:100%; max-width:900px; box-shadow: 0 10px 30px rgba(0,0,0,.2); }
-    .chip { font-weight:700; font-size:.75rem; padding:.25rem .6rem; border-radius:9999px; display:inline-block; }
+    .chip { font-weight:800; font-size:.75rem; padding:.25rem .6rem; border-radius:9999px; display:inline-block; }
     .chip-green { background:#dcfce7; color:#065f46; }
     .chip-gray { background:#f3f4f6; color:#374151; }
+    .toast { position:fixed; right:1rem; bottom:1rem; z-index:60; }
+    .toast > div { border-radius:.85rem; padding:.75rem 1rem; color:#fff; box-shadow:0 10px 25px rgba(0,0,0,.14); }
   </style>
 </head>
-<body class="bg-gray-100">
+<body>
 
-  <!-- Navbar con iconos -->
-  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
-    <a href="/" class="hover:underline flex items-center gap-2">
-      <i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas
-    </a>
-    <a href="/almacen" class="hover:underline flex items-center gap-2">
-      <i data-lucide="box" class="w-4 h-4"></i> Almacén
-    </a>
-    <a href="/historial" class="hover:underline flex items-center gap-2">
-      <i data-lucide="bar-chart" class="w-4 h-4"></i> Historial
-    </a>
-    <a href="/centavos" class="hover:underline flex items-center gap-2">
-      <i data-lucide="coins" class="w-4 h-4"></i> Centavos
-    </a>
-    <a href="/proveedores" class="underline flex items-center gap-2">
-      <i data-lucide="truck" class="w-4 h-4"></i> Proveedores
-    </a>
-    <a href="/usuarios" class="hover:underline flex items-center gap-2">
-      <i data-lucide="users" class="w-4 h-4"></i> Usuarios
-    </a>
-    <a href="/login" class="hover:underline flex items-center gap-2">
-      <i data-lucide="lock" class="w-4 h-4"></i> Login
-    </a>
-  </nav>
+  <!-- Header / nav con la misma lógica que Historial -->
+  <header class="glass max-w-7xl mx-auto mt-4 mb-6 px-4 py-3">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
+          <i data-lucide="truck" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl font-extrabold text-[var(--brand-900)]">Módulo de Proveedores</h1>
+          <p class="text-sm text-slate-500">Administra datos, contactos y listas de precios.</p>
+        </div>
+      </div>
+      <nav class="hidden md:flex gap-3 text-sm">
+        <a href="/" class="btn"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+        <a href="/almacen" class="btn"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+        <a href="/historial" class="btn"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+        <a href="/centavos" class="btn"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
+        <a href="/proveedores" class="btn btn-primary" aria-current="page"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
+        <a href="/usuarios" class="btn"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
+        <a href="/login" class="btn"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
+      </nav>
+    </div>
+  </header>
 
-  <main class="max-w-7xl mx-auto py-10 px-6">
-    <h1 class="text-3xl font-bold text-cyan-700 mb-6 flex items-center gap-2">
-      <i data-lucide="truck" class="w-7 h-7"></i> Módulo de Proveedores
-    </h1>
-
+  <main class="max-w-7xl mx-auto pb-10 px-4 md:px-6">
     <!-- Filtros + Crear -->
     <div class="card mb-6">
       <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
@@ -88,7 +96,7 @@
     </div>
 
     <!-- Tabla -->
-    <div class="card table-wrap">
+    <div class="table-wrap card p-0">
       <table class="w-full text-sm table-fixed">
         <colgroup>
           <col class="w-64"><col><col class="w-40"><col class="w-28"><col class="w-[22rem]">
@@ -108,11 +116,11 @@
   </main>
 
   <!-- Modal Crear/Editar -->
-  <div id="modalProveedor" class="modal-backdrop">
+  <div id="modalProveedor" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="modal">
       <div class="flex items-center justify-between mb-3">
         <h2 id="modalTitulo" class="text-xl font-bold text-cyan-700">Nuevo proveedor</h2>
-        <button id="btnCerrarModal" class="text-gray-500 hover:text-gray-800">
+        <button id="btnCerrarModal" class="text-gray-500 hover:text-gray-800" aria-label="Cerrar modal">
           <i data-lucide="x" class="w-5 h-5"></i>
         </button>
       </div>
@@ -172,16 +180,26 @@
     </div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast hidden" aria-live="polite"></div>
+
   <script>
     // Estado
     let proveedores = [];
     let editId = null;
 
+    // Toast helper
+    function toast(msg, ok=true){
+      const t = document.getElementById('toast');
+      t.className = 'toast';
+      t.innerHTML = `<div class="${ok?'bg-emerald-600':'bg-red-600'}">${msg}</div>`;
+      t.classList.remove('hidden'); setTimeout(()=> t.classList.add('hidden'), 2200);
+    }
+
     // Helpers UI
     function openModal(titulo = 'Nuevo proveedor', data = null) {
       document.getElementById('modalTitulo').textContent = titulo;
       document.getElementById('modalProveedor').style.display = 'flex';
-      // Reset
       document.getElementById('prov_id').value = data?.id || '';
       document.getElementById('prov_nombre').value = data?.nombre || '';
       document.getElementById('prov_rfc').value = data?.rfc || '';
@@ -194,15 +212,11 @@
       document.getElementById('prov_activo').checked = data?.activo ?? true;
       document.getElementById('prov_notas').value = data?.notas || '';
 
-      // Render contactos
-      const wrapC = document.getElementById('wrapContactos');
-      wrapC.innerHTML = '';
+      const wrapC = document.getElementById('wrapContactos'); wrapC.innerHTML = '';
       (data?.contactos || []).forEach(c => addContactoRow(c));
       if ((data?.contactos || []).length === 0) addContactoRow();
 
-      // Render precios
-      const wrapP = document.getElementById('wrapPrecios');
-      wrapP.innerHTML = '';
+      const wrapP = document.getElementById('wrapPrecios'); wrapP.innerHTML = '';
       (data?.precios || []).forEach(p => addPrecioRow(p));
       if ((data?.precios || []).length === 0) addPrecioRow();
 
@@ -251,12 +265,7 @@
       const rows = Array.from(document.querySelectorAll('#wrapContactos .grid'));
       return rows.map(r => {
         const inputs = r.querySelectorAll('input');
-        return {
-          nombre: inputs[0].value.trim(),
-          cargo: inputs[1].value.trim(),
-          email: inputs[2].value.trim(),
-          telefono: inputs[3].value.trim(),
-        };
+        return { nombre: inputs[0].value.trim(), cargo: inputs[1].value.trim(), email: inputs[2].value.trim(), telefono: inputs[3].value.trim() };
       }).filter(x => x.nombre || x.email || x.telefono);
     }
 
@@ -265,24 +274,16 @@
       return rows.map(r => {
         const inputs = r.querySelectorAll('input');
         return {
-          sku: inputs[0].value.trim(),
-          descripcion: inputs[1].value.trim(),
-          precio_compra: Number(inputs[2].value || 0),
-          moq: Number(inputs[3].value || 0),
+          sku: inputs[0].value.trim(), descripcion: inputs[1].value.trim(),
+          precio_compra: Number(inputs[2].value || 0), moq: Number(inputs[3].value || 0),
           lead_time_dias: Number(inputs[4].value || 0),
         };
       }).filter(x => x.sku);
     }
 
-    // ------- NUEVAS ACCIONES -------
-    function verProductos(id){
-      // Navega a Almacén con proveedor_id (no rompe nada si no lo usas aún)
-      window.location.href = `/almacen?proveedor_id=${encodeURIComponent(id)}`;
-    }
-    function verHistorial(id){
-      // Navega a Historial con proveedor_id
-      window.location.href = `/historial?proveedor_id=${encodeURIComponent(id)}`;
-    }
+    // Navegación útil
+    function verProductos(id){ window.location.href = `/almacen?proveedor_id=${encodeURIComponent(id)}`; }
+    function verHistorial(id){ window.location.href = `/historial?proveedor_id=${encodeURIComponent(id)}`; }
 
     // Render tabla
     function renderTabla() {
@@ -354,8 +355,8 @@
         body: JSON.stringify({ id })
       });
       const data = await res.json();
-      if (data.success) { await cargarProveedores(); alert('✅ Proveedor eliminado'); }
-      else alert('❌ No se pudo eliminar');
+      if (data.success) { await cargarProveedores(); toast('✅ Proveedor eliminado', true); }
+      else toast('❌ No se pudo eliminar', false);
     }
 
     async function guardarProveedor(){
@@ -375,7 +376,7 @@
         precios: leerPrecios()
       };
 
-      if (!payload.nombre) { alert('⚠️ Nombre es obligatorio'); return; }
+      if (!payload.nombre) { toast('⚠️ Nombre es obligatorio', false); return; }
 
       const res = await fetch('/guardar_proveedor', {
         method:'POST', headers:{'Content-Type':'application/json'},
@@ -385,9 +386,9 @@
       if (data.success) {
         await cargarProveedores();
         closeModal();
-        alert('✅ Proveedor guardado');
+        toast('✅ Proveedor guardado', true);
       } else {
-        alert('❌ No se pudo guardar');
+        toast('❌ No se pudo guardar', false);
       }
     }
 
