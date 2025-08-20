@@ -129,11 +129,21 @@
         </div>
       </div>
       <div class="flex items-center gap-2">
-        <a href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1" title="Imprimir último ticket"
-           class="btn btn-primary hidden md:inline-flex {{ 'invisible' if not session.get('ultimo_ticket') else '' }}">
-          <i data-lucide="printer" class="w-5 h-5"></i>
-          <span class="hidden lg:inline">Imprimir último</span>
-        </a>
+        {# === ÚNICO CAMBIO: botón imprime solo si hay ultimo_ticket === #}
+        {% set ultimo = session.get('ultimo_ticket') %}
+        {% if ultimo %}
+          <a href="{{ url_for('ticket', vid=ultimo) }}?print=1" title="Imprimir último ticket"
+             class="btn btn-primary hidden md:inline-flex">
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            <span class="hidden lg:inline">Imprimir último</span>
+          </a>
+        {% else %}
+          <a href="#" title="Aún no hay ticket"
+             class="btn btn-primary hidden md:inline-flex opacity-50 pointer-events-none" aria-disabled="true">
+            <i data-lucide="printer" class="w-5 h-5"></i>
+            <span class="hidden lg:inline">Imprimir último</span>
+          </a>
+        {% endif %}
       </div>
     </div>
 
