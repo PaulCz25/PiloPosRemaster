@@ -2,32 +2,27 @@ from flask import Flask, render_template, request, redirect, url_for, session, j
 import json
 import os
 from datetime import datetime
-from zoneinfo import ZoneInfo  # ← zona horaria real
+from zoneinfo import ZoneInfo  # zona horaria real
 
 # === Persistencia segura con Postgres/SQLite ===
-# Si hay DATABASE_URL => usamos Postgres (no crear /var/data).
-# Si NO hay DATABASE_URL => SQLite y sí creamos /var/data (requiere Disk en Render).
 USE_POSTGRES = bool(os.getenv("DATABASE_URL"))
 
 if USE_POSTGRES:
-    # Carpeta temporal solo para exports JSON/tickets (no persistente, suficiente en Postgres)
     DATA_DIR = os.getenv("DATA_DIR", "/tmp/pilopos")
 else:
     DATA_DIR = os.getenv("DATA_DIR", "/var/data")
 
-# Crear carpetas; si /var/data no existe y no hay Disk, ignora el error
 try:
-    os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
-    os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
+    os.makedirs(DATA_DIR, exist_ok=True)
+    os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)
 except PermissionError:
     # En Render sin Disk, /var/data no es escribible. Con Postgres usamos /tmp.
     pass
 
-# WebSockets en Flask
+# WebSockets
 from flask_socketio import SocketIO, join_room, emit
 
-# Zona horaria por defecto: Baja California (Tijuana).
-# Puedes sobreescribirla en Render con la env var APP_TZ
+# Zona horaria por defecto (puedes sobreescribir con APP_TZ en variables de entorno)
 LOCAL_TZ = ZoneInfo(os.getenv("APP_TZ", "America/Tijuana"))
 
 # Adaptadores de datos (tu store.py y db.py)
@@ -40,22 +35,16 @@ from db import get_db, init_db
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key')
 
-# ---- Socket.IO ----
-# En Render funciona con WebSockets; con gunicorn + gevent-websocket (ver startCommand).
+# Socket.IO
 socketio = SocketIO(app, cors_allowed_origins="*")
 
-# Estado "reciente" para sincronizar a una tablet que se conecta después
 _last_state = None
 
 @socketio.on("join")
 def on_join(data):
-    """
-    data puede ser {'role': 'display'|'admin'} o un string directo.
-    """
     role = data.get('role') if isinstance(data, dict) else str(data)
     if role == "display":
         join_room("display")
-        # Si hay estado previo, sincroniza a la tablet inmediatamente
         if _last_state:
             emit("state", _last_state)
     elif role == "admin":
@@ -63,9 +52,6 @@ def on_join(data):
 
 @socketio.on("update-display")
 def on_update_display(payload):
-    """
-    Se llama desde la PC (admin). Reenvía estado a la(s) tablet(s).
-    """
     global _last_state
     _last_state = payload
     emit("state", payload, to="display")
@@ -92,7 +78,6 @@ def export_productos_json():
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    # Persistir en disco (temporal en Postgres, persistente si usas Disk con SQLite)
     out_dir = os.path.join(DATA_DIR, 'static')
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, 'productos.json'), 'w', encoding='utf-8') as f:
@@ -146,7 +131,6 @@ def export_historial_json():
                 'productos': list(resumen.values())
             })
 
-    # Persistir en disco (temporal en Postgres)
     with open(os.path.join(DATA_DIR, 'historial.json'), 'w', encoding='utf-8') as f:
         json.dump(items_salida, f, ensure_ascii=False, indent=4)
 
@@ -221,6 +205,53 @@ def carrito_agregar_manual():
     return jsonify({'ok': True, 'total': round(nuevo_total, 2), 'count': len(carrito)})
 
 
+# ====== NUEVO: Agregar producto por "scan" (código de barras) ======
+@app.post('/carrito/scan')
+def carrito_scan():
+    """
+    Recibe JSON: {"codigo": "<ean|upc|code128>"}
+    - Busca por id exacto y variante sin '0' inicial (UPC-A vs EAN-13).
+    - Si existe, lo agrega al carrito de la sesión y devuelve totales.
+    - Si NO existe, redirige a almacén desde el front (found=False).
+    """
+    data = request.get_json(silent=True) or {}
+    code = (data.get('codigo') or '').strip()
+    if not code:
+        return jsonify({'ok': False, 'error': 'Código vacío'}), 400
+
+    variantes = {code}
+    if code.startswith('0'):  # normalización simple UPC-A/EAN-13
+        variantes.add(code.lstrip('0'))
+
+    row = None
+    with get_db() as conn:
+        for c in variantes:
+            row = conn.execute(
+                'SELECT id, nombre, precio FROM productos WHERE id=?',
+                (c,)
+            ).fetchone()
+            if row:
+                break
+
+    if not row:
+        # el front redirige a /almacen?nuevo=<code>
+        return jsonify({'ok': True, 'found': False, 'codigo': code}), 200
+
+    producto = {'nombre': row['nombre'], 'precio': float(row['precio'])}
+    carrito = session.get('carrito', [])
+    carrito.append(producto)
+    session['carrito'] = carrito
+
+    total = sum(item.get('precio', 0) for item in carrito)
+    return jsonify({
+        'ok': True,
+        'found': True,
+        'producto': {'id': row['id'], 'nombre': row['nombre'], 'precio': float(row['precio'])},
+        'total': round(total, 2),
+        'count': len(carrito)
+    })
+
+
 @app.route('/redondear', methods=['POST'])
 def redondear():
     aceptado = request.form.get('aceptado')
@@ -239,7 +270,7 @@ def redondear():
         else:
             resumen[nombre] = {'nombre': nombre, 'cantidad': 1, 'precio': precio_item}
 
-    # Fecha/hora con TZ local (Tijuana)
+    # Fecha/hora con TZ local
     ahora = datetime.now(LOCAL_TZ)
     fecha_str = ahora.strftime('%Y-%m-%d')
     hora_str = ahora.strftime('%H:%M')
@@ -283,11 +314,13 @@ def redondear():
                     (venta_id, pid, cantidad, pu)
                 )
 
-                # Si es un producto real del almacén, baja stock.
+                # Si es un producto real del almacén, baja stock (portable SQLite/Postgres).
                 if tiene_db:
                     conn.execute(
-                        'UPDATE productos SET stock = MAX(0, stock - ?) WHERE id = ?',
-                        (cantidad, pid)
+                        'UPDATE productos '
+                        'SET stock = CASE WHEN stock - ? < 0 THEN 0 ELSE stock - ? END '
+                        'WHERE id = ?',
+                        (cantidad, cantidad, pid)
                     )
 
             conn.execute('COMMIT')
@@ -315,9 +348,11 @@ def redondear():
     return redirect(url_for('venta'))
 
 
+# ---------- Almacén ----------
 @app.route('/almacen')
 def almacen():
-    codigo = request.args.get('codigo', '')
+    # Acepta ?codigo= o ?nuevo=
+    codigo = request.args.get('codigo', '') or request.args.get('nuevo', '')
     return render_template('almacen.html', codigo=codigo)
 
 
@@ -326,7 +361,6 @@ def guardar_producto():
     data = request.get_json() or {}
     codigo = data.get('codigo')
     nombre = data.get('nombre')
-    # 🔧 FIX de comillas:
     precio = float(data.get('precio'))
     cantidad = int(data.get('cantidad'))
     seccion = data.get('seccion', '')
@@ -383,6 +417,7 @@ def eliminar_producto():
         return jsonify({'success': False, 'message': f'Error al eliminar: {e}'}), 500
 
 
+# ---------- APIs ----------
 @app.route('/api/productos')
 def api_productos():
     # ⬇️ Por defecto ocultamos los MANUAL. Para incluirlos: ?incluir_manuales=1
@@ -455,6 +490,7 @@ def api_historial():
     return jsonify(items_salida)
 
 
+# ---------- Otras vistas ----------
 @app.route('/centavos')
 def centavos():
     centavos_list = []
@@ -685,6 +721,8 @@ def api_ventas():
                 "ORDER BY nombre",
                 (vid,)
             ).fetchall()
+
+            # ✅ FIX del f-string (sin escapes raros)
             productos_txt = ", ".join([f"{int(d['cant'] or 0)}x {d['nombre']}" for d in det]) if det else ""
 
             salida.append({
@@ -783,7 +821,6 @@ def ventas_delete():
 
 
 if __name__ == '__main__':
-    # En producción (Render) usa gunicorn + gevent-websocket (ver startCommand del render.yaml).
-    # Para correr localmente:
-    #   python app.py
+    # En producción (Render) usa gunicorn + gevent-websocket (ver startCommand).
+    # Local: python app.py
     socketio.run(app, debug=True)
