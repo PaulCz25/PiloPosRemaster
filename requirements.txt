@@ -6,3 +6,4 @@ gevent>=24.2.1
 gevent-websocket>=0.10.1
 gunicorn>=21.2
 psycopg2-binary>=2.9
+Flask-Compress>=1.14

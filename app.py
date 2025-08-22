@@ -1,7 +1,8 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, make_response
 import json
 import os
-from datetime import datetime
+import hashlib
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # zona horaria real
 
 # === Persistencia segura con Postgres/SQLite ===
@@ -33,10 +34,37 @@ from store import (
 from db import get_db, init_db
 
 app = Flask(__name__)
+
+# ---- Seguridad de cookies / sesión
+app.config.update(
+    SESSION_COOKIE_SECURE = os.getenv("COOKIE_SECURE", "1") == "1",
+    SESSION_COOKIE_HTTPONLY = True,
+    SESSION_COOKIE_SAMESITE = os.getenv("COOKIE_SAMESITE", "Lax"),
+    PERMANENT_SESSION_LIFETIME = timedelta(hours=int(os.getenv("SESSION_HOURS","12"))),
+)
+
+# ---- Compresión gzip automática
+from flask_compress import Compress
+Compress(app)
+
+# ---- Headers de seguridad para todas las respuestas
+@app.after_request
+def set_security_headers(resp):
+    resp.headers.setdefault("X-Content-Type-Options", "nosniff")
+    resp.headers.setdefault("X-Frame-Options", "SAMEORIGIN")
+    resp.headers.setdefault("Referrer-Policy", "strict-origin-when-cross-origin")
+    return resp
+
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key')
 
-# Socket.IO
-socketio = SocketIO(app, cors_allowed_origins="*")
+# Socket.IO parametrizable por entorno
+socketio = SocketIO(
+    app,
+    cors_allowed_origins=os.getenv("CORS_ORIGINS", "*"),
+    async_mode=os.getenv("SOCKETIO_ASYNC", "gevent"),
+    ping_interval=int(os.getenv("SOCKETIO_PING_INTERVAL", "25")),
+    ping_timeout=int(os.getenv("SOCKETIO_PING_TIMEOUT", "60")),
+)
 
 _last_state = None
 
@@ -420,22 +448,37 @@ def eliminar_producto():
 # ---------- APIs ----------
 @app.route('/api/productos')
 def api_productos():
-    # ⬇️ Por defecto ocultamos los MANUAL. Para incluirlos: ?incluir_manuales=1
+    """
+    Igual que antes pero con ETag + Cache-Control (304 si no cambia).
+    """
     incluir_manuales = (request.args.get('incluir_manuales') == '1')
     productos = productos_listar()
     if not incluir_manuales:
         productos = [p for p in productos if (p.get('categoria') or '').upper() != 'MANUAL']
 
-    salida = {}
-    for p in productos:
-        codigo = str(p.get('id') or '')
-        salida[codigo] = {
+    salida = {
+        str(p.get('id') or ''): {
             'nombre': p.get('nombre'),
             'precio': float(p.get('precio') or 0),
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    return jsonify(salida)
+        for p in productos
+    }
+
+    payload = json.dumps(salida, ensure_ascii=False, separators=(',', ':')).encode('utf-8')
+    etag = hashlib.sha256(payload).hexdigest()
+
+    if request.headers.get('If-None-Match') == etag:
+        resp = make_response('', 304)
+    else:
+        resp = make_response(payload, 200)
+        resp.headers['Content-Type'] = 'application/json; charset=utf-8'
+        resp.headers['Content-Length'] = str(len(payload))
+
+    resp.headers['ETag'] = etag
+    resp.headers['Cache-Control'] = 'public, max-age=60'
+    return resp
 
 
 @app.route('/api/historial')
@@ -722,7 +765,6 @@ def api_ventas():
                 (vid,)
             ).fetchall()
 
-            # ✅ FIX del f-string (sin escapes raros)
             productos_txt = ", ".join([f"{int(d['cant'] or 0)}x {d['nombre']}" for d in det]) if det else ""
 
             salida.append({
