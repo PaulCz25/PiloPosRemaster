@@ -246,7 +246,8 @@
     }
 
     function cargarProductos(){
-      fetch('/api/productos')
+fetch(`/api/productos?t=${Date.now()}`, { cache: 'no-store' })
+
         .then(r=>r.json())
         .then(productos=>{ todosLosProductos = productos || {}; poblarSecciones(); renderizarProductos(); })
         .catch(()=> toast('❌ No se pudieron cargar los productos.','err'));
