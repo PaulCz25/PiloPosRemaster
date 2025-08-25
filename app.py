@@ -51,7 +51,7 @@ def on_update_display(payload):
 # --------------------- Inicializar DB de control ---------------------
 try:
     with app.app_context():
-        init_db()   # crea control.tenants si no existe (idempotente)
+        init_db()   # crea control.tenants si no existe (idempotente) – en nuestro db.py es no-op
 except Exception as e:
     print('init_db warning:', e)
 
@@ -73,10 +73,10 @@ def ensure_tenant_schema():
     set search_path = "{TENANT_SCHEMA}", public;
 
     create table if not exists productos(
-      id       text primary key,
-      nombre   text not null,
-      precio   numeric(12,2) not null default 0,
-      stock    integer not null default 0,
+      id        text primary key,
+      nombre    text not null,
+      precio    numeric(12,2) not null default 0,
+      stock     integer not null default 0,
       categoria text
     );
     create index if not exists idx_productos_nombre on productos(nombre);
@@ -90,11 +90,11 @@ def ensure_tenant_schema():
     );
 
     create table if not exists ventas(
-      id     text primary key,
-      fecha  text not null,             -- guardas 'YYYY-MM-DD HH:MM' como texto
+      id      text primary key,
+      fecha   text not null,             -- guardas 'YYYY-MM-DD HH:MM' como texto
       cliente text,
-      total  numeric(12,2) not null default 0,
-      extra  text                       -- JSON serializado como texto
+      total   numeric(12,2) not null default 0,
+      extra   text                       -- JSON serializado como texto
     );
 
     create table if not exists venta_items(
@@ -314,10 +314,10 @@ def redondear():
                     (venta_id, pid, cantidad, pu)
                 )
 
-                # Si es un producto real del almacén, baja stock.
+                # Si es un producto real del almacén, baja stock (usar GREATEST en Postgres)
                 if with_db:
                     conn.execute(
-                        'UPDATE productos SET stock = MAX(0, stock - ?) WHERE id = ?',
+                        'UPDATE productos SET stock = GREATEST(0, stock - ?) WHERE id = ?',
                         (cantidad, pid)
                     )
 
