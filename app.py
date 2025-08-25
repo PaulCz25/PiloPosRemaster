@@ -1,20 +1,14 @@
-from flask import Flask, render_template, request, redirect, url_for, session, jsonify
+from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g
 import json
 import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
 
-# === Config persistencia (Opción 1: SQLite + Disco Persistente) ===
-# DATA_DIR apunta al disco persistente en Render (p. ej., /var/data)
-DATA_DIR = os.getenv("DATA_DIR", "/var/data")
-
-# En vez de usar /var/data (requiere disco persistente), usamos TMP que sí es writable
+# Carpeta escribible en Render (no usar /var/data en Free/Starter)
 DATA_DIR = os.environ.get("DATA_DIR", "/tmp/pilotopos")
 STATIC_DIR = os.path.join(DATA_DIR, "static")
-
 os.makedirs(DATA_DIR, exist_ok=True)
 os.makedirs(STATIC_DIR, exist_ok=True)
-
 
 # WebSockets en Flask
 from flask_socketio import SocketIO, join_room, emit
@@ -23,32 +17,26 @@ from flask_socketio import SocketIO, join_room, emit
 # Puedes sobreescribirla en Render con la env var APP_TZ
 LOCAL_TZ = ZoneInfo(os.getenv("APP_TZ", "America/Tijuana"))
 
-# Adaptadores SQLite
+# Adaptadores y store
 from store import (
     proveedores_listar, proveedores_guardar, proveedores_eliminar,
     productos_listar, productos_guardar, productos_eliminar,
 )
 from db import get_db, init_db
 
+# ================== APP ==================
 app = Flask(__name__)
 app.secret_key = os.getenv('SECRET_KEY', 'dev-key')
 
 # ---- Socket.IO ----
-# En Render funciona con WebSockets; con gunicorn + gevent-websocket (ver startCommand).
 socketio = SocketIO(app, cors_allowed_origins="*")
-
-# Estado "reciente" para sincronizar a una tablet que se conecta después
 _last_state = None
 
 @socketio.on("join")
 def on_join(data):
-    """
-    data puede ser {'role': 'display'|'admin'} o un string directo.
-    """
     role = data.get('role') if isinstance(data, dict) else str(data)
     if role == "display":
         join_room("display")
-        # Si hay estado previo, sincroniza a la tablet inmediatamente
         if _last_state:
             emit("state", _last_state)
     elif role == "admin":
@@ -56,25 +44,82 @@ def on_join(data):
 
 @socketio.on("update-display")
 def on_update_display(payload):
-    """
-    Se llama desde la PC (admin). Reenvía estado a la(s) tablet(s).
-    """
     global _last_state
     _last_state = payload
     emit("state", payload, to="display")
 
-
-# --------------------- Inicializar DB (Flask 3 compatible) ---------------------
+# --------------------- Inicializar DB de control ---------------------
 try:
     with app.app_context():
-        init_db()
+        init_db()   # crea control.tenants si no existe (idempotente)
 except Exception as e:
     print('init_db warning:', e)
 
+# --------------------- TENANT FIJO POR SITIO ---------------------
+import psycopg
+
+DATABASE_URL = os.environ["DATABASE_URL"]               # la URL interna que pusiste en Render
+TENANT_SCHEMA = os.getenv("TENANT_SCHEMA", "tnt_default")  # p.ej. tnt_cliente1
+
+def ensure_tenant_schema():
+    """
+    Crea el schema de ESTE sitio si no existe y tablas mínimas para que no truene.
+    NOTA: 'extra' se maneja como TEXT (compat json.dumps/json.loads en este código).
+    """
+    ddl = f'''
+    create schema if not exists "{TENANT_SCHEMA}";
+    set search_path = "{TENANT_SCHEMA}", public;
+
+    create table if not exists productos(
+      id       text primary key,
+      nombre   text not null,
+      precio   numeric(12,2) not null default 0,
+      stock    integer not null default 0,
+      categoria text
+    );
+    create index if not exists idx_productos_nombre on productos(nombre);
+
+    create table if not exists proveedores(
+      id        text primary key,
+      nombre    text not null,
+      telefono  text,
+      email     text,
+      direccion text
+    );
+
+    create table if not exists ventas(
+      id     text primary key,
+      fecha  text not null,             -- guardas 'YYYY-MM-DD HH:MM' como texto
+      cliente text,
+      total  numeric(12,2) not null default 0,
+      extra  text                       -- JSON serializado como texto
+    );
+
+    create table if not exists venta_items(
+      id              bigserial primary key,
+      venta_id        text not null references ventas(id) on delete cascade,
+      producto_id     text not null references productos(id),
+      cantidad        integer not null,
+      precio_unitario numeric(12,2) not null
+    );
+    create index if not exists idx_venta_items_venta on venta_items(venta_id);
+    '''
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute(ddl)
+            conn.commit()
+
+# Ejecutar una vez al arrancar el proceso (Flask 3: llamada directa)
+ensure_tenant_schema()
+
+@app.before_request
+def set_fixed_tenant():
+    # Todas las requests usan el schema de este sitio
+    g.tenant_schema = TENANT_SCHEMA
+    g.r2_prefix = f"tenants/{TENANT_SCHEMA}/"
 
 # ===================== EXPORTADORES (opcionales) =====================
 def export_productos_json():
-    # ⬇️ Ocultamos los productos creados “al vuelo”
     data = [p for p in productos_listar() if (p.get('categoria') or '').upper() != 'MANUAL']
     out = {}
     for p in data:
@@ -85,12 +130,10 @@ def export_productos_json():
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    # Persistir en disco persistentes
     out_dir = os.path.join(DATA_DIR, 'static')
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, 'productos.json'), 'w', encoding='utf-8') as f:
         json.dump(out, f, ensure_ascii=False, indent=4)
-
 
 def export_historial_json():
     items_salida = []
@@ -139,17 +182,13 @@ def export_historial_json():
                 'productos': list(resumen.values())
             })
 
-    # Persistir en disco persistente
     with open(os.path.join(DATA_DIR, 'historial.json'), 'w', encoding='utf-8') as f:
         json.dump(items_salida, f, ensure_ascii=False, indent=4)
 
-
 # ===================== Rutas =====================
-
 @app.route('/')
 def index():
     return redirect(url_for('venta'))
-
 
 @app.route('/venta')
 def venta():
@@ -160,7 +199,6 @@ def venta():
     total = sum(item.get('precio', 0) for item in carrito)
     total_redondeado = round(total + 0.5)
 
-    # Para forzar que la tablet renderice el bloque (aunque su sesión esté vacía)
     display_mode = (request.args.get('display') == '1')
 
     return render_template(
@@ -171,7 +209,6 @@ def venta():
         mensaje=session.pop('mensaje', None),
         display_mode=display_mode
     )
-
 
 @app.route('/agregar-producto', methods=['POST'])
 def agregar_producto():
@@ -192,7 +229,6 @@ def agregar_producto():
     else:
         return redirect(url_for('almacen', codigo=codigo))
 
-
 # ====== NUEVO: Agregar productos manuales al carrito ======
 @app.post('/carrito/agregar_manual')
 def carrito_agregar_manual():
@@ -212,7 +248,6 @@ def carrito_agregar_manual():
     nuevo_total = sum(item.get('precio', 0) for item in carrito)
 
     return jsonify({'ok': True, 'total': round(nuevo_total, 2), 'count': len(carrito)})
-
 
 @app.route('/redondear', methods=['POST'])
 def redondear():
@@ -243,8 +278,9 @@ def redondear():
             conn.execute('BEGIN')
 
             extra = {'redondeo': float(redondeo), 'hora': hora_str}
+            # NOTA: 'extra' es TEXT; guardamos el JSON serializado sin 'json(?)'
             conn.execute(
-                'INSERT INTO ventas (id, fecha, cliente, total, extra) VALUES (?, ?, ?, ?, json(?))',
+                'INSERT INTO ventas (id, fecha, cliente, total, extra) VALUES (?, ?, ?, ?, ?)',
                 (venta_id, f'{fecha_str} {hora_str}', None, float(total_final), json.dumps(extra, ensure_ascii=False))
             )
 
@@ -252,6 +288,7 @@ def redondear():
                 cantidad = int(info['cantidad'])
 
                 # ¿Existe en productos? → usar su id/precio.
+                with_db = False
                 prow = conn.execute(
                     'SELECT id, precio FROM productos WHERE nombre=? LIMIT 1',
                     (nombre,)
@@ -260,16 +297,15 @@ def redondear():
                 if prow:
                     pid = prow['id']
                     pu = float(prow['precio'] or 0.0)
-                    tiene_db = True
+                    with_db = True
                 else:
-                    # ---- Crear un producto "MANUAL" para respetar la FK ----
+                    # Crear producto "MANUAL" para respetar FK
                     pu = float(info.get('precio', 0.0))
                     pid = ahora.strftime('M%Y%m%d%H%M%S%f')  # id único
                     conn.execute(
                         'INSERT INTO productos (id, nombre, precio, stock, categoria) VALUES (?,?,?,?,?)',
                         (pid, nombre, pu, 0, 'MANUAL')
                     )
-                    tiene_db = False  # no tocar stock aunque exista la fila
 
                 conn.execute(
                     'INSERT INTO venta_items (venta_id, producto_id, cantidad, precio_unitario) VALUES (?, ?, ?, ?)',
@@ -277,7 +313,7 @@ def redondear():
                 )
 
                 # Si es un producto real del almacén, baja stock.
-                if tiene_db:
+                if with_db:
                     conn.execute(
                         'UPDATE productos SET stock = MAX(0, stock - ?) WHERE id = ?',
                         (cantidad, pid)
@@ -292,7 +328,7 @@ def redondear():
         session['mensaje'] = f'❌ Error al completar la venta: {e}'
         return redirect(url_for('venta'))
 
-    # (Compat opcional: espejo JSON persistente)
+    # Espejos JSON opcionales
     try:
         export_productos_json()
         export_historial_json()
@@ -304,15 +340,13 @@ def redondear():
         else '✅ Venta completada sin redondeo.'
     )
     session['carrito'] = []
-    session['ultimo_ticket'] = venta_id  # para botón de ticket en ventas
+    session['ultimo_ticket'] = venta_id
     return redirect(url_for('venta'))
-
 
 @app.route('/almacen')
 def almacen():
     codigo = request.args.get('codigo', '')
     return render_template('almacen.html', codigo=codigo)
-
 
 @app.route('/guardar_producto', methods=['POST'])
 def guardar_producto():
@@ -339,7 +373,6 @@ def guardar_producto():
 
     return {'success': True, 'id': _id}
 
-
 # ===================== BORRADO FORZADO =====================
 @app.route('/eliminar_producto', methods=['POST'])
 def eliminar_producto():
@@ -352,9 +385,7 @@ def eliminar_producto():
     try:
         with get_db() as conn:
             conn.execute('BEGIN')
-            # 1) Eliminar detalle de ventas que use este producto
             conn.execute('DELETE FROM venta_items WHERE producto_id = ?', (codigo,))
-            # 2) Eliminar el producto
             cur = conn.execute('DELETE FROM productos WHERE id = ?', (codigo,))
             conn.execute('COMMIT')
 
@@ -374,10 +405,8 @@ def eliminar_producto():
             pass
         return jsonify({'success': False, 'message': f'Error al eliminar: {e}'}), 500
 
-
 @app.route('/api/productos')
 def api_productos():
-    # ⬇️ Por defecto ocultamos los MANUAL. Para incluirlos: ?incluir_manuales=1
     incluir_manuales = (request.args.get('incluir_manuales') == '1')
     productos = productos_listar()
     if not incluir_manuales:
@@ -393,7 +422,6 @@ def api_productos():
             'seccion': p.get('categoria') or ''
         }
     return jsonify(salida)
-
 
 @app.route('/api/historial')
 def api_historial():
@@ -446,7 +474,6 @@ def api_historial():
 
     return jsonify(items_salida)
 
-
 @app.route('/centavos')
 def centavos():
     centavos_list = []
@@ -479,7 +506,6 @@ def centavos():
 
     return render_template('centavos.html', centavos=centavos_list, total_centavos=round(total_centavos, 2))
 
-
 @app.route('/carrito/eliminar', methods=['POST'])
 def carrito_eliminar():
     data = request.get_json(silent=True) or {}
@@ -497,37 +523,30 @@ def carrito_eliminar():
 
     return jsonify({'ok': False, 'error': 'index out of range'}), 400
 
-
 @app.route('/historial')
 def historial():
     return render_template('historial.html')
-
 
 @app.route('/usuarios')
 def usuarios():
     return render_template('usuarios.html')
 
-
 @app.route('/login')
 def login():
     return render_template('login.html')
-
 
 @app.route('/logout')
 def logout():
     session.clear()
     return redirect(url_for('login'))
 
-
 @app.route('/proveedores')
 def proveedores_view():
     return render_template('proveedores.html')
 
-
 @app.route('/api/proveedores')
 def api_proveedores():
     return jsonify(proveedores_listar())
-
 
 @app.route('/guardar_proveedor', methods=['POST'])
 def guardar_proveedor():
@@ -535,14 +554,12 @@ def guardar_proveedor():
     pid = proveedores_guardar(data)
     return jsonify({'success': True, 'id': pid})
 
-
 @app.route('/eliminar_proveedor', methods=['POST'])
 def eliminar_proveedor():
     data = request.get_json() or {}
     pid = str(data.get('id', ''))
     proveedores_eliminar(pid)
     return jsonify({'success': True})
-
 
 # ===================== Ruta de ticket =====================
 @app.route('/ticket/<vid>')
@@ -610,12 +627,10 @@ def ticket(vid):
         subtotal=subtotal
     )
 
-
 # ===================== PANEL DE DATOS (ADMIN) =====================
 @app.route('/panel')
 def panel():
     return render_template('admin_datos.html')
-
 
 @app.get('/api/ventas')
 def api_ventas():
@@ -690,7 +705,6 @@ def api_ventas():
 
     return jsonify(salida)
 
-
 @app.post('/ventas/update')
 def ventas_update():
     """
@@ -751,7 +765,6 @@ def ventas_update():
 
     return jsonify({"ok": True})
 
-
 @app.post('/ventas/delete')
 def ventas_delete():
     """
@@ -773,9 +786,6 @@ def ventas_delete():
 
     return jsonify({"ok": True})
 
-
 if __name__ == '__main__':
-    # En producción (Render) usa gunicorn + gevent-websocket (ver startCommand del render.yaml).
-    # Para correr localmente:
-    #   python app.py
+    # En producción (Render) usa gunicorn + gevent-websocket (ver Start Command).
     socketio.run(app, debug=True)
