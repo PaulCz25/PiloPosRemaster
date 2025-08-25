@@ -7,8 +7,14 @@ from zoneinfo import ZoneInfo  # ← zona horaria real
 # === Config persistencia (Opción 1: SQLite + Disco Persistente) ===
 # DATA_DIR apunta al disco persistente en Render (p. ej., /var/data)
 DATA_DIR = os.getenv("DATA_DIR", "/var/data")
-os.makedirs(DATA_DIR, exist_ok=True)  # asegura el directorio base
-os.makedirs(os.path.join(DATA_DIR, "static"), exist_ok=True)  # para exportaciones JSON
+
+# En vez de usar /var/data (requiere disco persistente), usamos TMP que sí es writable
+DATA_DIR = os.environ.get("DATA_DIR", "/tmp/pilotopos")
+STATIC_DIR = os.path.join(DATA_DIR, "static")
+
+os.makedirs(DATA_DIR, exist_ok=True)
+os.makedirs(STATIC_DIR, exist_ok=True)
+
 
 # WebSockets en Flask
 from flask_socketio import SocketIO, join_room, emit
