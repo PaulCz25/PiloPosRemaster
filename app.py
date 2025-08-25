@@ -58,7 +58,9 @@ except Exception as e:
 # --------------------- TENANT FIJO POR SITIO ---------------------
 import psycopg
 
-DATABASE_URL = os.environ["DATABASE_URL"]               # la URL interna que pusiste en Render
+DATABASE_URL = (os.environ.get("DATABASE_URL") or "").strip()
+if not DATABASE_URL:
+    raise RuntimeError("Falta DATABASE_URL")
 TENANT_SCHEMA = os.getenv("TENANT_SCHEMA", "tnt_default")  # p.ej. tnt_cliente1
 
 def ensure_tenant_schema():
