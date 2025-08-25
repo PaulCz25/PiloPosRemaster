@@ -79,7 +79,7 @@ def export_productos_json():
             'cantidad': int(p.get('stock') or 0),
             'seccion': p.get('categoria') or ''
         }
-    # Persistir en disco persistente
+    # Persistir en disco persistentes
     out_dir = os.path.join(DATA_DIR, 'static')
     os.makedirs(out_dir, exist_ok=True)
     with open(os.path.join(out_dir, 'productos.json'), 'w', encoding='utf-8') as f:
