@@ -787,24 +787,36 @@ def ventas_delete():
         conn.execute("DELETE FROM ventas WHERE id=?", (vid,))
 
     return jsonify({"ok": True})
-# ===== PROBE DE DIAGNÓSTICO =====
+# ===== PROBE DE DIAGNÓSTICO (tolerante a Postgres/SQLite) =====
 @app.get('/__probe')
 def __probe():
-    # Muestra el schema activo y algunos productos
+    info = {
+        'env_TENANT_SCHEMA': TENANT_SCHEMA,
+        'g_tenant_schema': getattr(g, 'tenant_schema', None),
+        'db_url_kind': ('postgres' if 'postgresql://' in os.environ.get('DATABASE_URL','') else 'unknown')
+    }
     try:
         with get_db() as conn:
-            sp = conn.execute('show search_path').fetchone()['search_path']
-            rows = conn.execute(
-                'select id, nombre, precio, stock, categoria from productos order by id limit 10'
-            ).fetchall()
-        return jsonify({
-            'env_TENANT_SCHEMA': TENANT_SCHEMA,
-            'g_tenant_schema': getattr(g, 'tenant_schema', None),
-            'search_path': sp,
-            'rows': rows,
-        })
+            # 1) intenta leer el search_path (Postgres)
+            try:
+                row = conn.execute("select current_setting('search_path') as sp").fetchone()
+                if row and ('sp' in row or 'search_path' in row):
+                    info['search_path'] = row.get('sp') or row.get('search_path')
+            except Exception as e:
+                info['search_path_error'] = str(e)
+
+            # 2) intenta leer algunos productos
+            try:
+                rows = conn.execute(
+                    'select id, nombre, precio, stock, categoria from productos order by id limit 10'
+                ).fetchall()
+                info['rows'] = rows
+            except Exception as e:
+                info['rows_error'] = str(e)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        info['conn_error'] = str(e)
+
+    return jsonify(info)
 # ===== FIN PROBE =====
 
 if __name__ == '__main__':
