@@ -1,65 +1,59 @@
-# db.py
+# db.py — versión Postgres multi-tenant (usa psycopg3)
 import os
-import sqlite3
+import psycopg
+from psycopg.rows import dict_row
+from flask import g
 
-# Carpeta escribible en Render (en Free/Starter NO usar /var/data)
-DATA_DIR = os.environ.get("DATA_DIR", "/tmp/pilotopos")
-os.makedirs(DATA_DIR, exist_ok=True)
+DATABASE_URL = os.environ["DATABASE_URL"]  # debe venir de Render
 
-DB_PATH = os.path.join(DATA_DIR, "pilotopos.db")
+class _WrappedConn:
+    """Adaptador pequeño para permitir conn.execute('SQL ?', [params]) como en SQLite."""
+    def __init__(self, conn: psycopg.Connection):
+        self._conn = conn
+
+    def execute(self, sql: str, params=()):
+        # Traduce placeholders estilo SQLite (?) -> psycopg (%s)
+        if params:
+            sql = sql.replace("?", "%s")
+            return self._conn.execute(sql, params)
+        return self._conn.execute(sql)
+
+    def __getattr__(self, name):
+        # delega commit(), rollback(), cursor(), etc.
+        return getattr(self._conn, name)
+
+class _DBCtx:
+    """Context manager compatible con 'with get_db() as conn:'."""
+    def __enter__(self):
+        schema = getattr(g, "tenant_schema", None)
+        if not schema:
+            raise RuntimeError("Tenant no resuelto (g.tenant_schema vacío)")
+
+        # Abre conexión a Postgres con filas tipo dict
+        self._raw = psycopg.connect(DATABASE_URL, row_factory=dict_row)
+
+        # Fija el search_path al schema del sitio y luego public
+        with self._raw.cursor() as cur:
+            cur.execute(f'SET search_path TO "{schema}", public')
+
+        return _WrappedConn(self._raw)
+
+    def __exit__(self, exc_type, exc, tb):
+        try:
+            if exc_type:
+                try:
+                    self._raw.rollback()
+                except Exception:
+                    pass
+        finally:
+            self._raw.close()
 
 def get_db():
-    """
-    Retorna una conexión SQLite lista para usar.
-    Se puede usar como context manager:
-        with get_db() as conn:
-            conn.execute("...")
-    """
-    conn = sqlite3.connect(DB_PATH, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    return conn
+    """Uso: with get_db() as conn: conn.execute(...).fetchall()"""
+    return _DBCtx()
 
 def init_db():
-    """
-    Crea las tablas mínimas si no existen (idempotente).
-    Nota: 'extra' es TEXT y guardamos JSON serializado como cadena.
-    """
-    os.makedirs(DATA_DIR, exist_ok=True)
-    with get_db() as conn:
-        conn.executescript("""
-        PRAGMA journal_mode=WAL;
-
-        CREATE TABLE IF NOT EXISTS productos(
-            id        TEXT PRIMARY KEY,
-            nombre    TEXT NOT NULL,
-            precio    REAL NOT NULL DEFAULT 0,
-            stock     INTEGER NOT NULL DEFAULT 0,
-            categoria TEXT
-        );
-        CREATE INDEX IF NOT EXISTS idx_productos_nombre ON productos(nombre);
-
-        CREATE TABLE IF NOT EXISTS proveedores(
-            id        TEXT PRIMARY KEY,
-            nombre    TEXT NOT NULL,
-            telefono  TEXT,
-            email     TEXT,
-            direccion TEXT
-        );
-
-        CREATE TABLE IF NOT EXISTS ventas(
-            id      TEXT PRIMARY KEY,
-            fecha   TEXT NOT NULL,    -- 'YYYY-MM-DD HH:MM'
-            cliente TEXT,
-            total   REAL NOT NULL DEFAULT 0,
-            extra   TEXT              -- JSON serializado
-        );
-
-        CREATE TABLE IF NOT EXISTS venta_items(
-            id              INTEGER PRIMARY KEY AUTOINCREMENT,
-            venta_id        TEXT NOT NULL REFERENCES ventas(id) ON DELETE CASCADE,
-            producto_id     TEXT NOT NULL REFERENCES productos(id),
-            cantidad        INTEGER NOT NULL,
-            precio_unitario REAL NOT NULL
-        );
-        CREATE INDEX IF NOT EXISTS idx_venta_items_venta ON venta_items(venta_id);
-        """)
+    """Solo verifica conectividad; no crea tablas aquí."""
+    with psycopg.connect(DATABASE_URL) as conn:
+        with conn.cursor() as cur:
+            cur.execute("select 1")
