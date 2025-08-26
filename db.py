@@ -4,7 +4,8 @@ import psycopg
 from psycopg.rows import dict_row
 from flask import g
 
-DATABASE_URL = os.environ["DATABASE_URL"]  # debe venir de Render
+# después
+DATABASE_URL = os.environ["DATABASE_URL"].strip() # debe venir de Render
 
 class _WrappedConn:
     """Adaptador pequeño para permitir conn.execute('SQL ?', [params]) como en SQLite."""
