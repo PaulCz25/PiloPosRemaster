@@ -787,6 +787,25 @@ def ventas_delete():
         conn.execute("DELETE FROM ventas WHERE id=?", (vid,))
 
     return jsonify({"ok": True})
+# ===== PROBE DE DIAGNÓSTICO =====
+@app.get('/__probe')
+def __probe():
+    # Muestra el schema activo y algunos productos
+    try:
+        with get_db() as conn:
+            sp = conn.execute('show search_path').fetchone()['search_path']
+            rows = conn.execute(
+                'select id, nombre, precio, stock, categoria from productos order by id limit 10'
+            ).fetchall()
+        return jsonify({
+            'env_TENANT_SCHEMA': TENANT_SCHEMA,
+            'g_tenant_schema': getattr(g, 'tenant_schema', None),
+            'search_path': sp,
+            'rows': rows,
+        })
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+# ===== FIN PROBE =====
 
 if __name__ == '__main__':
     # En producción (Render) usa gunicorn + gevent-websocket (ver Start Command).
