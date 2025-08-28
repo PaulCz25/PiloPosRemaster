@@ -1,594 +1,507 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PilotoPOS – Ventas</title>
   <script src="https://cdn.tailwindcss.com"></script>
-  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest"></script>
-  <!-- Socket.IO (cliente) -->
   <script src="https://cdn.socket.io/4.7.5/socket.io.min.js"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card {
-      border-radius: 1.25rem;
-      background: #fff;
-      box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06);
-      border: 1px solid rgba(14,116,144,.06);
+    :root{
+      --brand-900:#0e7490; --brand-700:#0ea5b0; --brand-600:#0891b2; --brand-500:#06b6d4;
+      --ink-900:#0f172a; --ink-700:#334155; --ok-600:#059669; --err-600:#dc2626; --soft:#eef7fb;
     }
-    .soft-divider { border-top: 1px solid rgba(0,0,0,.06); }
-    .input {
-      border: 1px solid rgb(165 243 252 / .6);
-      border-radius: 0.75rem;
-      padding: 0.75rem;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
-      width: 100%;
-      outline: none;
-    }
-    .input:focus {
-      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
-      border-color: rgb(14 116 144);
-    }
-    .btn {
-      display: inline-flex; align-items: center; justify-content: center;
-      border-radius: 0.75rem; font-weight: 600; transition: .15s ease;
-      box-shadow: 0 6px 14px -6px rgba(14,116,144,.35);
-    }
-    .btn-primary { background:#0891b2; color:#fff; }
-    .btn-primary:hover { filter: brightness(1.05); }
-    .btn-success { background:#059669; color:#fff; }
-    .btn-danger { background:#dc2626; color:#fff; }
-    .pill { padding:.5rem 1rem; border-radius:9999px; font-weight:600; font-size:.9rem; }
+    html, body { height: 100%; }
+    body { font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue','Noto Sans',Arial,'Apple Color Emoji','Segoe UI Emoji'; }
+    .card { border-radius: 1.25rem; background: #fff; box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06); border: 1px solid rgba(14,116,144,.08); }
+    .soft-divider { border-top: 1px solid rgba(2,6,23,.06); }
+    .input { border: 1px solid rgb(165 243 252 / .7); border-radius: 0.75rem; padding: 0.8rem 0.9rem; width: 100%; box-shadow: 0 1px 1px rgba(0,0,0,.03); outline: none; background:#fff; }
+    .input:focus { box-shadow: 0 0 0 4px rgba(14,116,144,.14); border-color: var(--brand-600); }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border-radius:.85rem; font-weight:700; transition:.15s ease; padding:.8rem 1.1rem; box-shadow: 0 8px 20px -10px rgba(14,116,144,.45); }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--brand-600); color:#fff; }
+    .btn-primary:hover { filter:brightness(1.05); }
+    .btn-success { background: var(--ok-600); color:#fff; }
+    .btn-danger  { background: var(--err-600); color:#fff; }
+    .btn-ghost   { background:#fff; color:var(--brand-600); border:1px solid rgba(14,116,144,.25); }
+    .pill { padding:.5rem 1rem; border-radius:9999px; font-weight:700; font-size:.9rem; }
     .pill-yes { background:#ecfdf5; color:#065f46; border:1px solid #a7f3d0; }
-    .pill-no { background:#fff1f2; color:#9f1239; border:1px solid #fecdd3; }
-    .active { box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); transform: translateY(-1px); }
-    .totals-card {
-      background: linear-gradient(180deg, #f7fbff 0%, #f3f8ff 100%);
-      border: 1px solid rgba(14,116,144,.12);
-      border-radius: 1rem;
-    }
-    /* Tablet en modo display: no interactuar, pero se ve IGUAL */
+    .active   { box-shadow: inset 0 0 0 2px rgba(0,0,0,.15); transform: translateY(-1px); }
+    .totals-card { background: linear-gradient(180deg,#f7fbff 0%, #f1f6ff 100%); border:1px solid rgba(14,116,144,.15); border-radius:1rem; }
     .is-display button, .is-display .btn, .is-display input, .is-display select,
-    .is-display textarea, .is-display form, .is-display a[href] {
-      pointer-events: none !important;
-    }
+    .is-display textarea, .is-display form, .is-display a[href] { pointer-events:none !important; }
+    .glass { background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.60)); backdrop-filter:saturate(160%) blur(8px); border:1px solid rgba(14,116,144,.12); border-radius:1rem; }
+    .empty-ring { box-shadow: inset 0 0 0 2px rgba(14,116,144,.15); }
+    @keyframes pop { from{ transform:scale(.98); opacity:.3 } to{ transform:scale(1); opacity:1 } }
+    .pop { animation: pop .18s ease-out; }
   </style>
 </head>
-<body class="bg-gray-50 min-h-screen flex">
-
+<body class="bg-gradient-to-b from-cyan-50 to-white min-h-screen flex">
   <!-- Sidebar -->
-  <aside class="w-64 bg-gradient-to-b from-cyan-700 to-cyan-500 text-white flex flex-col py-8 px-6 shadow-2xl rounded-r-3xl">
-    <div class="flex flex-col items-center mb-12">
-      <img src="/static/logo-piloto.png" alt="PilotoPOS" class="h-28 md:h-32 w-auto mb-4 drop-shadow-lg" />
-      <span class="text-xl font-bold tracking-wide text-white/95">PilotoPOS</span>
+  <aside class="hidden md:flex w-72 bg-gradient-to-b from-[var(--brand-900)] to-[var(--brand-600)] text-white flex-col py-8 px-6 shadow-2xl rounded-r-3xl">
+    <div class="flex flex-col items-center mb-10">
+      <img src="/static/logo-piloto.png" alt="PilotoPOS" class="h-28 w-auto mb-3 drop-shadow-lg" />
+      <span class="text-xl font-extrabold tracking-wide text-white/95">PilotoPOS</span>
+      <span class="text-xs text-white/70 mt-1">Punto de Venta Abarrotero</span>
     </div>
 
-    <div class="mb-4 text-sm uppercase tracking-wider text-cyan-100">Navegación</div>
-    <nav class="flex flex-col gap-3 text-base">
-      <a href="/" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+    <div class="mb-3 text-[.75rem] uppercase tracking-wider text-cyan-100/90">Navegación</div>
+    <nav class="flex flex-col gap-2 text-base">
+      <a href="/" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="shopping-cart" class="w-5 h-5"></i> Ventas
       </a>
-      <a href="/almacen" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/almacen" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="box" class="w-5 h-5"></i> Almacén
       </a>
-      <a href="/historial" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/historial" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="bar-chart" class="w-5 h-5"></i> Historial
       </a>
-      <a href="/centavos" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/centavos" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="coins" class="w-5 h-5"></i> Centavos
       </a>
-      <a href="/proveedores" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/proveedores" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="truck" class="w-5 h-5"></i> Proveedores
       </a>
-      <a href="/panel" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/panel" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="database" class="w-5 h-5"></i> Panel de datos
       </a>
     </nav>
 
-    <div class="mt-8 mb-2 text-sm uppercase tracking-wider text-cyan-100">Cuenta</div>
-    <nav class="flex flex-col gap-3 text-base">
-      <a href="/usuarios" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+    <div class="mt-8 mb-2 text-[.75rem] uppercase tracking-wider text-cyan-100/90">Cuenta</div>
+    <nav class="flex flex-col gap-2 text-base">
+      <a href="/usuarios" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="users" class="w-5 h-5"></i> Usuarios
       </a>
-      <a href="/login" class="flex items-center gap-3 hover:bg-cyan-800/60 px-4 py-2 rounded-xl transition">
+      <a href="/login" class="flex items-center gap-3 px-4 py-2 rounded-xl transition hover:bg-white/10">
         <i data-lucide="lock" class="w-5 h-5"></i> Login
       </a>
     </nav>
+
+    <div class="mt-auto pt-6 text-xs text-white/70">
+      <div class="flex items-center gap-2"><i data-lucide="radio" class="w-4 h-4"></i><span id="statusText">Conectando…</span></div>
+      <div class="mt-2 opacity-80" id="clock"></div>
+    </div>
   </aside>
 
-  <!-- Contenido principal -->
-  <main class="flex-1 p-8">
-    <div class="card p-8 max-w-4xl mx-auto">
-      <h2 class="text-4xl font-extrabold text-cyan-700 mb-6 flex items-center gap-3">
-        <i data-lucide="shopping-cart" class="w-8 h-8"></i>
-        Punto de Venta
-      </h2>
+  <!-- Main -->
+  <main class="flex-1 p-4 md:p-8">
+    <!-- Top bar glass -->
+    <div class="glass px-4 py-3 md:px-6 md:py-4 mb-5 flex items-center justify-between rounded-2xl">
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center justify-center w-10 h-10 rounded-xl bg-white/70 text-[var(--brand-600)]">
+          <i data-lucide="shopping-cart" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--brand-900)] leading-tight">Punto de Venta</h1>
+          <p class="text-sm text-slate-500">Escanea, cobra y imprime en segundos.</p>
+        </div>
+      </div>
+      <div class="flex items-center gap-2">
+        {% set ultimo = session.get('ultimo_ticket') %}
+        {% if ultimo %}
+          <a href="{{ url_for('ticket', vid=ultimo) }}?print=1" title="Imprimir último ticket" class="btn btn-primary hidden md:inline-flex">
+            <i data-lucide="printer" class="w-5 h-5"></i><span class="hidden lg:inline">Imprimir último</span>
+          </a>
+        {% else %}
+          <a href="#" title="Aún no hay ticket" class="btn btn-primary hidden md:inline-flex opacity-50 pointer-events-none" aria-disabled="true">
+            <i data-lucide="printer" class="w-5 h-5"></i><span class="hidden lg:inline">Imprimir último</span>
+          </a>
+        {% endif %}
+      </div>
+    </div>
 
-      <!-- Captura de código + Agregar manual -->
-      <form method="POST" action="/agregar-producto" class="mb-6">
-        <label for="codigo" class="block text-gray-800 font-semibold mb-2">Escanea o ingresa el código:</label>
-        <div class="flex gap-3">
-          <input type="text" id="codigo" name="codigo" required autofocus
-                 class="input flex-1" placeholder="Ej: QR123, AZT55, 1234">
-          <button type="submit" class="btn btn-primary px-6 py-3">Agregar</button>
-
-          <!-- Botón Agregar manual -->
-          <button type="button"
-                  class="btn px-6 py-3 bg-white text-cyan-700 border border-cyan-200 hover:bg-cyan-50"
-                  onclick="abrirManual()"
-                  title="Agregar producto manual">
-            <i data-lucide="plus" class="w-5 h-5"></i>
-            <span class="ml-2">Agregar manual</span>
+    <div class="card p-5 md:p-8 max-w-5xl mx-auto pop">
+      <!-- Captura -->
+      <form method="POST" action="/agregar-producto" class="mb-6" aria-label="Agregar por código">
+        <label for="codigo" class="block text-slate-800 font-semibold mb-2">Escanea o ingresa el código:</label>
+        <div class="flex gap-2 md:gap-3">
+          <input type="text" id="codigo" name="codigo" required autofocus class="input flex-1 text-lg md:text-base" placeholder="Ej: QR123, AZT55, 1234" aria-label="Código de producto" inputmode="text" />
+          <button type="submit" class="btn btn-primary px-4 md:px-6" aria-label="Agregar al carrito">
+            <i data-lucide="scan" class="w-5 h-5"></i><span class="hidden md:inline">Agregar</span>
+          </button>
+          <button type="button" class="btn btn-ghost px-4 md:px-6" onclick="abrirManual()" title="Agregar producto manual" aria-haspopup="dialog">
+            <i data-lucide="plus" class="w-5 h-5"></i><span class="hidden md:inline">Agregar manual</span>
           </button>
         </div>
       </form>
 
       {% if mensaje %}
-        <div class="bg-yellow-50 text-yellow-800 border border-yellow-100 px-4 py-3 rounded-xl shadow-sm mb-6">
-          {{ mensaje }}
-        </div>
+      <div class="bg-yellow-50 text-yellow-800 border border-yellow-100 px-4 py-3 rounded-xl shadow-sm mb-6">
+        {{ mensaje }}
+      </div>
       {% endif %}
 
-      <!-- BOTÓN: Imprimir último ticket -->
       {% if session.get('ultimo_ticket') %}
-        <div class="mb-6">
-          <a
-            href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1"
-            class="btn btn-primary px-5 py-2.5 inline-flex items-center gap-2"
-            title="Imprimir último ticket"
-          >
-            <i data-lucide="printer" class="w-5 h-5"></i>
-            Imprimir último ticket
-          </a>
-          <span class="ml-2 text-sm text-gray-500">
-            Folio: {{ session.get('ultimo_ticket') }}
-          </span>
-        </div>
+      <div class="mb-6 md:hidden">
+        <a href="{{ url_for('ticket', vid=session.get('ultimo_ticket')) }}?print=1" class="btn btn-primary w-full" title="Imprimir último ticket">
+          <i data-lucide="printer" class="w-5 h-5"></i> Imprimir último ticket
+        </a>
+        <div class="mt-2 text-center text-sm text-gray-500">Folio: {{ session.get('ultimo_ticket') }}</div>
+      </div>
       {% endif %}
 
-      {# Forzamos que el bloque exista en modo display aunque el carrito local esté vacío #}
       {% if carrito or display_mode %}
-        <!-- Carrito -->
-        <div class="rounded-2xl border border-gray-200/60 p-5 mb-6">
-          <div class="flex items-center gap-2 text-xl font-bold text-gray-800 mb-4">
-            <i data-lucide="list-checks" class="w-5 h-5 text-cyan-700"></i> Carrito
-          </div>
-
-          <ul id="listaCarrito" class="divide-y divide-gray-100 mb-4">
-            {% for item in carrito %}
-              <li class="py-3 flex items-center justify-between" data-index="{{ loop.index0 }}">
-                <div class="flex items-center gap-3">
-                  <span class="text-gray-800">{{ item.nombre }}</span>
-                </div>
-                <div class="flex items-center gap-4">
-                  <div class="text-gray-900 font-semibold">${{ '%.2f'|format(item.precio) }}</div>
-                  <button type="button" onclick="quitarItem('{{ loop.index0 }}')"
-                          class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
-                    <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
-                  </button>
-                </div>
-              </li>
-            {% endfor %}
-          </ul>
-
-          <div class="soft-divider my-4"></div>
-
-          <div class="flex items-center justify-between">
-            <div class="text-lg font-semibold text-gray-900">Total</div>
-            <div class="text-xl font-extrabold text-gray-900">
-              $<span id="totalBruto">{{ '%.2f'|format(total) }}</span>
-            </div>
-          </div>
-
-          <div class="text-right mt-4">
-            <button type="button" onclick="mostrarRedondeo()" class="btn btn-primary px-5 py-2.5">Pagar</button>
-          </div>
-
-          <div id="redondeoArea" class="mt-4 hidden">
-            <div class="flex items-center gap-3 justify-end">
-              <span class="text-gray-700">Redondear a
-                <strong class="text-gray-900">${{ '%.2f'|format(total_redondeado) }}</strong>
-              </span>
-              <button id="btnYes" type="button" onclick="aceptarRedondeo()" class="pill pill-yes">Sí</button>
-              <button id="btnNo" type="button" onclick="rechazarRedondeo()" class="pill pill-no">No</button>
-            </div>
-          </div>
+      <!-- Carrito -->
+      <section class="rounded-2xl border border-gray-200/70 p-5 mb-6" aria-label="Carrito">
+        <div class="flex items-center gap-2 text-xl font-extrabold text-slate-800 mb-4">
+          <i data-lucide="list-checks" class="w-5 h-5 text-[var(--brand-600)]"></i> Carrito
         </div>
 
-        <!-- Pago y resumen -->
-        <div id="bloquePago" class="grid md:grid-cols-[1fr_auto] items-start gap-4 hidden">
-          <div class="order-2 md:order-2 md:justify-self-end">
-            <div class="flex items-center gap-2">
-              <label for="pagoCliente" class="font-semibold text-gray-800 whitespace-nowrap">
-                ¿Con cuánto pagó el cliente?
-              </label>
-              <input type="number" id="pagoCliente" step="0.01" placeholder="$ 0.00"
-                     class="input w-36 text-right">
+        <ul id="listaCarrito" class="divide-y divide-gray-100 mb-4 min-h-[3.25rem]">
+          {% if carrito|length == 0 %}
+          <li class="py-8 text-center text-slate-500 empty-ring rounded-xl">Tu carrito está vacío. Escanea un código o agrega manualmente.</li>
+          {% else %}
+          {% for item in carrito %}
+          <li class="py-3 flex items-center justify-between" data-index="{{ loop.index0 }}">
+            <div class="flex items-center gap-3">
+              <div class="w-9 h-9 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center"><i data-lucide="package" class="w-4 h-4"></i></div>
+              <span data-rol="nombre" class="text-slate-900 font-medium">{{ item.nombre }}</span>
             </div>
-          </div>
-
-          <div class="order-1 md:order-1 totals-card p-5">
-            <div id="resultadoCambio" class="hidden space-y-2">
-              <div class="flex justify-between text-gray-700">
-                <span>Total a pagar:</span>
-                <span id="montoTotal" class="font-bold text-gray-900">$0.00</span>
-              </div>
-              <div class="flex justify-between text-gray-700">
-                <span>Pago recibido:</span>
-                <span id="montoPago" class="font-bold text-emerald-600">$0.00</span>
-              </div>
-              <div class="flex justify-between text-gray-700">
-                <span>Cambio a devolver:</span>
-                <span id="montoCambio" class="font-bold text-emerald-600">$0.00</span>
-              </div>
-            </div>
-
-            <div class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
-              <button type="button" onclick="calcularCambio()" class="btn btn-success px-4 py-2">
-                Calcular cambio
+            <div class="flex items-center gap-4">
+              <div data-rol="precio" class="text-slate-900 font-semibold text-lg">${{ '%.2f'|format(item.precio) }}</div>
+              <button type="button" onclick="quitarItem('{{ loop.index0 }}')" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
+                <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
               </button>
+            </div>
+          </li>
+          {% endfor %}
+          {% endif %}
+        </ul>
 
-              <div id="finalizarCompra" class="hidden">
-                <form method="POST" action="/redondear" class="inline-block">
-                  <input type="hidden" id="campoRedondeo" name="aceptado" value="">
-                  <button type="submit" class="btn btn-primary px-6 py-3">
-                    Finalizar compra
-                  </button>
-                </form>
-              </div>
+        <div class="soft-divider my-4"></div>
+
+        <div class="flex items-center justify-between">
+          <div class="text-lg font-semibold text-slate-900">Total</div>
+          <div class="text-2xl md:text-3xl font-black text-slate-900 tracking-tight">$ <span id="totalBruto">{{ '%.2f'|format(total) }}</span></div>
+        </div>
+
+        <div class="text-right mt-4">
+          <!-- Pagar va directo a bloque de pago (sin redondeo) -->
+          <button type="button" onclick="mostrarPagoDirecto()" class="btn btn-primary px-5">Pagar</button>
+        </div>
+      </section>
+
+      <!-- Pago -->
+      <section id="bloquePago" class="grid md:grid-cols-[1fr_auto] items-start gap-4 hidden" aria-label="Pago">
+        <div class="order-2 md:order-2 md:justify-self-end w-full">
+          <div class="flex items-center gap-2 w-full justify-end">
+            <label for="pagoCliente" class="font-semibold text-slate-800 whitespace-nowrap">¿Con cuánto pagó el cliente?</label>
+            <input type="number" id="pagoCliente" step="0.01" placeholder="$ 0.00" class="input w-40 text-right" inputmode="decimal" />
+          </div>
+
+          <div id="cashPresets" class="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-5 gap-2 md:gap-3 mt-3 md:mt-2">
+            <button type="button" class="pill pill-yes" data-cash="exact">Exacto</button>
+            <button type="button" class="pill pill-yes" data-cash="50">$50</button>
+            <button type="button" class="pill pill-yes" data-cash="100">$100</button>
+            <button type="button" class="pill pill-yes" data-cash="200">$200</button>
+            <button type="button" class="pill pill-yes" data-cash="500">$500</button>
+          </div>
+        </div>
+
+        <div class="order-1 md:order-1 totals-card p-5 w-full">
+          <div id="resultadoCambio" class="hidden space-y-2" aria-live="polite">
+            <div class="flex justify-between text-slate-700"><span>Total a pagar:</span><span id="montoTotal" class="font-bold text-slate-900">$0.00</span></div>
+            <div class="flex justify-between text-slate-700"><span>Pago recibido:</span><span id="montoPago" class="font-bold text-emerald-600">$0.00</span></div>
+            <div class="flex justify-between text-slate-700"><span>Cambio a devolver:</span><span id="montoCambio" class="font-bold text-emerald-600">$0.00</span></div>
+          </div>
+
+          <div class="mt-4 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
+            <button type="button" onclick="calcularCambio()" class="btn btn-success px-4">Calcular cambio</button>
+            <div id="finalizarCompra" class="hidden">
+              <!-- Se conserva el form/endpoint por compatibilidad; ya no se envía redondeo -->
+              <form method="POST" action="/redondear" class="inline-block">
+                <input type="hidden" id="campoRedondeo" name="aceptado" value="" />
+                <button type="submit" class="btn btn-primary px-6">Finalizar compra</button>
+              </form>
             </div>
           </div>
         </div>
+      </section>
       {% endif %}
     </div>
 
+    <div id="toast" class="fixed bottom-4 right-4 hidden"></div>
+
     <!-- Modal: Agregar manual -->
-    <div id="modalManual" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50">
+    <div id="modalManual" class="fixed inset-0 bg-black/40 hidden items-center justify-center z-50" role="dialog" aria-modal="true" aria-labelledby="tituloManual">
       <div class="bg-white rounded-2xl p-6 w-full max-w-md shadow-xl">
-        <h3 class="text-xl font-bold text-cyan-700 mb-4 flex items-center gap-2">
+        <h3 id="tituloManual" class="text-xl font-extrabold text-[var(--brand-700)] mb-4 flex items-center gap-2">
           <i data-lucide="plus" class="w-5 h-5"></i> Agregar producto manual
         </h3>
         <div class="space-y-3">
           <div>
-            <label class="text-sm font-medium text-gray-700">Nombre</label>
-            <input id="manNombre" type="text" class="input mt-1" placeholder="Ej: Queso 1kg">
+            <label for="manNombre" class="text-sm font-medium text-slate-700">Nombre</label>
+            <input id="manNombre" type="text" class="input mt-1" placeholder="Ej: Queso 1kg" />
           </div>
           <div>
-            <label class="text-sm font-medium text-gray-700">Precio</label>
-            <input id="manPrecio" type="number" step="0.01" min="0" class="input mt-1" placeholder="100.00">
+            <label for="manPrecio" class="text-sm font-medium text-slate-700">Precio</label>
+            <input id="manPrecio" type="number" step="0.01" min="0" class="input mt-1" placeholder="100.00" inputmode="decimal" />
           </div>
         </div>
         <div class="mt-5 flex gap-2 justify-end">
-          <button type="button" class="btn px-4 py-2 bg-white text-gray-700 border border-gray-200 hover:bg-gray-50" onclick="cerrarManual()">
-            Cancelar
-          </button>
-          <button type="button" class="btn btn-primary px-4 py-2" onclick="agregarManual()">
-            Añadir
-          </button>
+          <button type="button" class="btn btn-ghost" onclick="cerrarManual()">Cancelar</button>
+          <button type="button" class="btn btn-primary" onclick="agregarManual()">Añadir</button>
         </div>
       </div>
     </div>
+  </main>
 
-    <script>
-      // ---- Modo display por query param ----
-      const params = new URLSearchParams(location.search);
-      const DISPLAY = params.get('display') === '1';
-      if (DISPLAY) document.body.classList.add('is-display');
+  <!-- SCRIPT PRINCIPAL -->
+  <script>
+    // Utilidades
+    function fmt(n){ return Number(n).toFixed(2); }
+    function parseMoney(str){ return Number(String(str || '0').replace(/[^\d.]/g, '')) || 0; }
 
-      // ---- Socket.IO ----
-      const socket = io();
-      socket.emit('join', { role: DISPLAY ? 'display' : 'admin' });
+    // Modo DISPLAY por query param
+    const params = new URLSearchParams(location.search);
+    const DISPLAY = params.get('display') === '1';
+    if (DISPLAY) document.body.classList.add('is-display');
 
-      socket.on('state', (s) => {
-        // Llega desde el servidor (reenviado de la PC)
-        renderFromState(s);
+    // Socket y estado de conexión
+    const socket = io();
+    socket.emit('join', { role: DISPLAY ? 'display' : 'admin' });
+
+    const statusText = document.getElementById('statusText');
+    socket.on('connect', () => statusText && (statusText.textContent = 'Conectado'));
+    socket.on('disconnect', () => statusText && (statusText.textContent = 'Desconectado'));
+    socket.on('state', (s) => { renderFromState(s); });
+
+    // ---- Estado DOM -> JSON (sin redondeo) ----
+    function collectState(){
+      const items = [];
+      document.querySelectorAll('#listaCarrito li').forEach(li => {
+        const name = li.querySelector('[data-rol="nombre"]')?.textContent?.trim() || '';
+        const priceTxt = li.querySelector('[data-rol="precio"]')?.textContent || '0';
+        const price = parseMoney(priceTxt);
+        if (name) items.push({ nombre: name, precio: price });
       });
+      const totalBrutoEl = document.getElementById('totalBruto');
+      const total = parseMoney(totalBrutoEl ? totalBrutoEl.textContent : '0');
 
-      function parseMoney(str) {
-        return Number(String(str || '0').replace(/[^\d.]/g, '')) || 0;
-      }
+      const bloquePago = document.getElementById('bloquePago');
+      const resultadoCambio = document.getElementById('resultadoCambio');
+      const finalizarCompra = document.getElementById('finalizarCompra');
 
-      function collectState() {
-        // Lee el DOM actual y arma el estado a enviar
-        const items = [];
-        document.querySelectorAll('#listaCarrito li').forEach(li => {
-          const name = li.querySelector('span.text-gray-800')?.textContent?.trim() || '';
-          const priceTxt = li.querySelector('div.text-gray-900')?.textContent || '0';
-          const price = parseMoney(priceTxt);
-          if (name) items.push({ nombre: name, precio: price });
-        });
+      const pagoInput = document.getElementById('pagoCliente');
+      const pago = pagoInput && pagoInput.value ? Number(pagoInput.value) : 0;
 
-        const totalBrutoEl = document.getElementById('totalBruto');
-        const total = parseMoney(totalBrutoEl ? totalBrutoEl.textContent : '0');
+      const tf = isFinite(window.totalFinal) ? Number(window.totalFinal) : total;
 
-        const redondeoArea = document.getElementById('redondeoArea');
-        const bloquePago = document.getElementById('bloquePago');
-        const resultadoCambio = document.getElementById('resultadoCambio');
-        const finalizarCompra = document.getElementById('finalizarCompra');
-        const campoRedondeo = document.getElementById('campoRedondeo');
+      return {
+        carrito: items,
+        total: Number(total.toFixed(2)),
+        bloquePago_visible: bloquePago ? !bloquePago.classList.contains('hidden') : false,
+        resultadoCambio_visible: resultadoCambio ? !resultadoCambio.classList.contains('hidden') : false,
+        finalizar_visible: finalizarCompra ? !finalizarCompra.classList.contains('hidden') : false,
+        total_final: Number(tf.toFixed(2)),
+        pago: isFinite(pago) ? Number(pago) : 0,
+        cambio: isFinite(pago) ? Number((pago - tf).toFixed(2)) : 0
+      };
+    }
 
-        const pagoInput = document.getElementById('pagoCliente');
-        const pago = pagoInput && pagoInput.value ? Number(pagoInput.value) : 0;
-
-        // totalFinal está en tu script original como global
-        let tf = (typeof totalFinal !== 'undefined' && isFinite(totalFinal)) ? Number(totalFinal) : total;
-        if (!isFinite(tf) || tf <= 0) tf = total;
-
-        return {
-          carrito: items,
-          total: Number(total.toFixed(2)),
-          total_redondeado: Math.round(total + 0.5),
-          redondeo_visible: redondeoArea ? !redondeoArea.classList.contains('hidden') : false,
-          redondeo_aceptado: campoRedondeo ? (campoRedondeo.value || "") : "",
-          bloquePago_visible: bloquePago ? !bloquePago.classList.contains('hidden') : false,
-          resultadoCambio_visible: resultadoCambio ? !resultadoCambio.classList.contains('hidden') : false,
-          finalizar_visible: finalizarCompra ? !finalizarCompra.classList.contains('hidden') : false,
-          total_final: Number(tf.toFixed(2)),
-          pago: isFinite(pago) ? Number(pago) : 0,
-          cambio: isFinite(pago) ? Number((pago - tf).toFixed(2)) : 0
-        };
-      }
-
-      function renderFromState(s) {
-        // 1) Lista del carrito
-        const ul = document.getElementById('listaCarrito');
-        if (ul) {
-          ul.innerHTML = '';
-          (s.carrito || []).forEach((it, idx) => {
-            const li = document.createElement('li');
-            li.className = 'py-3 flex items-center justify-between';
-            li.setAttribute('data-index', idx);
-            li.innerHTML = `
-              <div class="flex items-center gap-3">
-                <span class="text-gray-800"></span>
-              </div>
-              <div class="flex items-center gap-4">
-                <div class="text-gray-900 font-semibold"></div>
-                <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
-                  <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
-                </button>
-              </div>`;
-            li.querySelector('span.text-gray-800').textContent = it.nombre || '';
-            li.querySelector('div.text-gray-900').textContent = '$' + Number(it.precio || 0).toFixed(2);
-            ul.appendChild(li);
-          });
-        }
-
-        // 2) Totales
-        const totalBruto = document.getElementById('totalBruto');
-        if (totalBruto) totalBruto.textContent = (s.total || 0).toFixed(2);
-
-        // 3) Redondeo y flujo de pago
-        const redondeoArea = document.getElementById('redondeoArea');
-        if (redondeoArea) redondeoArea.classList.toggle('hidden', !s.redondeo_visible);
-
-        const btnYes = document.getElementById('btnYes');
-        const btnNo = document.getElementById('btnNo');
-        if (btnYes && btnNo) {
-          btnYes.classList.toggle('active', s.redondeo_aceptado === 'si');
-          btnNo.classList.toggle('active', s.redondeo_aceptado === 'no');
-        }
-
-        const campoRedondeo = document.getElementById('campoRedondeo');
-        if (campoRedondeo) campoRedondeo.value = s.redondeo_aceptado || '';
-
-        const bloquePago = document.getElementById('bloquePago');
-        if (bloquePago) bloquePago.classList.toggle('hidden', !s.bloquePago_visible);
-
-        const resultadoCambio = document.getElementById('resultadoCambio');
-        if (resultadoCambio) resultadoCambio.classList.toggle('hidden', !s.resultadoCambio_visible);
-
-        const finalizarCompra = document.getElementById('finalizarCompra');
-        if (finalizarCompra) finalizarCompra.classList.toggle('hidden', !s.finalizar_visible);
-
-        const pagoInput = document.getElementById('pagoCliente');
-        if (pagoInput) pagoInput.value = s.pago || '';
-
-        const mTotal = document.getElementById('montoTotal');
-        const mPago  = document.getElementById('montoPago');
-        const mCambio= document.getElementById('montoCambio');
-        if (mTotal) mTotal.textContent  = '$' + Number(s.total_final || s.total || 0).toFixed(2);
-        if (mPago)  mPago.textContent   = '$' + Number(s.pago || 0).toFixed(2);
-        if (mCambio) mCambio.textContent= '$' + Number(s.cambio || 0).toFixed(2);
-
-        if (window.lucide) lucide.createIcons();
-      }
-
-      function broadcast() {
-        if (!DISPLAY) {
-          socket.emit('update-display', collectState());
-        }
-      }
-
-      // ---------------- Tu lógica original + hooks de broadcast ----------------
-      function mostrarRedondeo() {
-        document.getElementById("redondeoArea").classList.remove("hidden");
-        var bp = document.getElementById("bloquePago");
-        if (bp) bp.classList.add("hidden");
-        var rc = document.getElementById("resultadoCambio");
-        if (rc) rc.classList.add("hidden");
-        var fc = document.getElementById("finalizarCompra");
-        if (fc) fc.classList.add("hidden");
-        broadcast();
-      }
-
-      let totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
-      let totalFinal = totalVenta;
-
-      function setActive(btnOn, btnOff){
-        btnOn.classList.add('active');
-        btnOff.classList.remove('active');
-      }
-
-      function aceptarRedondeo() {
-        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
-        totalFinal = Math.ceil(totalVenta);
-        document.getElementById("campoRedondeo").value = "si";
-        setActive(document.getElementById('btnYes'), document.getElementById('btnNo'));
-        var bp = document.getElementById("bloquePago");
-        if (bp) bp.classList.remove("hidden");
-        var rc = document.getElementById("resultadoCambio");
-        if (rc) rc.classList.add("hidden");
-        var fc = document.getElementById("finalizarCompra");
-        if (fc) fc.classList.add("hidden");
-        broadcast();
-      }
-
-      function rechazarRedondeo() {
-        totalVenta = parseFloat((document.getElementById("totalBruto") && document.getElementById("totalBruto").textContent) || 0);
-        totalFinal = totalVenta;
-        document.getElementById("campoRedondeo").value = "no";
-        setActive(document.getElementById('btnNo'), document.getElementById('btnYes'));
-        var bp = document.getElementById("bloquePago");
-        if (bp) bp.classList.remove("hidden");
-        var rc = document.getElementById("resultadoCambio");
-        if (rc) rc.classList.add("hidden");
-        var fc = document.getElementById("finalizarCompra");
-        if (fc) fc.classList.add("hidden");
-        broadcast();
-      }
-
-      function calcularCambio() {
-        const pago = parseFloat(document.getElementById("pagoCliente").value);
-        const resultadoDiv = document.getElementById("resultadoCambio");
-
-        if (isNaN(pago) || pago < totalFinal) {
-          resultadoDiv.classList.remove("hidden");
-          resultadoDiv.innerHTML =
-            '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
-          var fc = document.getElementById("finalizarCompra");
-          if (fc) fc.classList.add("hidden");
-          broadcast();
-          return;
-        }
-
-        const cambio = (pago - totalFinal).toFixed(2);
-        document.getElementById("montoTotal").textContent = `$${totalFinal.toFixed(2)}`;
-        document.getElementById("montoPago").textContent  = `$${pago.toFixed(2)}`;
-        document.getElementById("montoCambio").textContent = `$${cambio}`;
-
-        resultadoDiv.classList.remove("hidden");
-        var fc2 = document.getElementById("finalizarCompra");
-        if (fc2) fc2.classList.remove("hidden");
-        broadcast();
-      }
-
-      async function quitarItem(idx){
-        idx = Number(idx);
-        try {
-          const resp = await fetch('/carrito/eliminar', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ index: idx })
-          });
-          const data = await resp.json();
-
-          if (!resp.ok || !data.ok) return;
-
-          const li = document.querySelector(`li[data-index="${idx}"]`);
-          if (li) li.remove();
-
-          document.querySelectorAll('#listaCarrito li').forEach((el, i) => {
-            el.setAttribute('data-index', i);
-            const btn = el.querySelector('button[onclick^="quitarItem"]');
-            if (btn) btn.setAttribute('onclick', `quitarItem(${i})`);
-          });
-
-          totalVenta = Number(data.total) || 0;
-          const yesBtn = document.getElementById('btnYes');
-          const siActivo = yesBtn ? yesBtn.classList.contains('active') : false;
-          totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
-          document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
-
-          document.getElementById("bloquePago")?.classList.add("hidden");
-          document.getElementById("resultadoCambio")?.classList.add("hidden");
-          document.getElementById("finalizarCompra")?.classList.add("hidden");
-          if ((data.count || 0) === 0) {
-            document.getElementById("redondeoArea")?.classList.add("hidden");
-          }
-          broadcast();
-        } catch (e) {
-          console.error(e);
-        }
-      }
-
-      // -------- Agregar manual ----------
-      function abrirManual(){
-        const m = document.getElementById('modalManual');
-        document.getElementById('manNombre').value = '';
-        document.getElementById('manPrecio').value = '';
-        m.classList.remove('hidden'); m.classList.add('flex');
-      }
-      function cerrarManual(){
-        const m = document.getElementById('modalManual');
-        m.classList.add('hidden'); m.classList.remove('flex');
-      }
-
-      async function agregarManual(){
-        const nombre = (document.getElementById('manNombre').value || '').trim();
-        const precio = Number(document.getElementById('manPrecio').value);
-
-        if (!nombre) { alert('Escribe un nombre.'); return; }
-        if (!isFinite(precio) || precio < 0) { alert('Precio inválido.'); return; }
-
-        try {
-          const resp = await fetch('/carrito/agregar_manual', {
-            method: 'POST',
-            headers: {'Content-Type':'application/json'},
-            body: JSON.stringify({ nombre, precio })
-          });
-          const data = await resp.json();
-          if (!resp.ok || !data.ok) { alert('No se pudo agregar.'); return; }
-
-          // Si no hay bloque de carrito (estaba vacío), recarga para mostrarlo
-          const ul = document.getElementById('listaCarrito');
-          if (!ul) { window.location.reload(); return; }
-
-          const idx = ul.querySelectorAll('li').length;
+    // ---- JSON -> DOM (sin redondeo) ----
+    function renderFromState(s){
+      const ul = document.getElementById('listaCarrito');
+      if (ul){
+        ul.innerHTML = '';
+        (s.carrito || []).forEach((it, idx) => {
           const li = document.createElement('li');
           li.className = 'py-3 flex items-center justify-between';
           li.setAttribute('data-index', idx);
           li.innerHTML = `
             <div class="flex items-center gap-3">
-              <span class="text-gray-800"></span>
+              <div class="w-9 h-9 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center"><i data-lucide="package" class="w-4 h-4"></i></div>
+              <span data-rol="nombre" class="text-slate-900 font-medium"></span>
             </div>
             <div class="flex items-center gap-4">
-              <div class="text-gray-900 font-semibold"></div>
-              <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito" onclick="quitarItem(${idx})">
+              <div data-rol="precio" class="text-slate-900 font-semibold text-lg"></div>
+              <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
                 <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
-              </button>
-            </div>
-          `;
-          li.querySelector('span.text-gray-800').textContent = nombre;
-          li.querySelector('div.text-gray-900').textContent = '$' + Number(precio).toFixed(2);
+              </button>`;
+          li.querySelector('[data-rol="nombre"]').textContent = it.nombre || '';
+          li.querySelector('[data-rol="precio"]').textContent = '$' + fmt(it.precio || 0);
           ul.appendChild(li);
-
-          totalVenta = Number(data.total) || 0;
-          const yesBtn = document.getElementById('btnYes');
-          const siActivo = yesBtn ? yesBtn.classList.contains('active') : false;
-          totalFinal = siActivo ? Math.ceil(totalVenta) : totalVenta;
-          document.getElementById('totalBruto').textContent = totalVenta.toFixed(2);
-
-          document.getElementById("redondeoArea")?.classList.add("hidden");
-          document.getElementById("bloquePago")?.classList.add("hidden");
-          document.getElementById("resultadoCambio")?.classList.add("hidden");
-          document.getElementById("finalizarCompra")?.classList.add("hidden");
-
-          cerrarManual();
-          if (window.lucide) lucide.createIcons();
-          broadcast();
-        } catch (e) {
-          console.error(e);
-          alert('Error de red al agregar.');
+        });
+        if (!s.carrito || s.carrito.length === 0){
+          const empty = document.createElement('li');
+          empty.className = 'py-8 text-center text-slate-500 empty-ring rounded-xl';
+          empty.textContent = 'Tu carrito está vacío. Escanea un código o agrega manualmente.';
+          ul.appendChild(empty);
         }
       }
 
-      // Emitir estado completo al cargar (útil tras redirecciones de POST)
-      document.addEventListener('DOMContentLoaded', () => {
+      const totalBruto = document.getElementById('totalBruto');
+      if (totalBruto) totalBruto.textContent = fmt(s.total || 0);
+
+      const bloquePago = document.getElementById('bloquePago');
+      if (bloquePago) bloquePago.classList.toggle('hidden', !s.bloquePago_visible);
+
+      const resultadoCambio = document.getElementById('resultadoCambio');
+      if (resultadoCambio) resultadoCambio.classList.toggle('hidden', !s.resultadoCambio_visible);
+
+      const finalizarCompra = document.getElementById('finalizarCompra');
+      if (finalizarCompra) finalizarCompra.classList.toggle('hidden', !s.finalizar_visible);
+
+      const pagoInput = document.getElementById('pagoCliente');
+      if (pagoInput) pagoInput.value = s.pago || '';
+
+      const mTotal = document.getElementById('montoTotal');
+      const mPago  = document.getElementById('montoPago');
+      const mCambio= document.getElementById('montoCambio');
+      if (mTotal)  mTotal.textContent  = '$' + fmt(s.total_final || s.total || 0);
+      if (mPago)   mPago.textContent   = '$' + fmt(s.pago || 0);
+      if (mCambio) mCambio.textContent = '$' + fmt(s.cambio || 0);
+
+      if (window.lucide) lucide.createIcons();
+    }
+
+    function broadcast(){ if (!DISPLAY) socket.emit('update-display', collectState()); }
+
+    // Abrir pago directo (sin redondeo)
+    function mostrarPagoDirecto(){
+      document.getElementById('bloquePago').classList.remove('hidden');
+      document.getElementById('resultadoCambio').classList.add('hidden');
+      document.getElementById('finalizarCompra').classList.add('hidden');
+      broadcast();
+    }
+
+    let totalVenta = parseFloat((document.getElementById('totalBruto') && document.getElementById('totalBruto').textContent) || 0);
+    let totalFinal = totalVenta; // sin redondeo
+
+    function calcularCambio(){
+      const pago = parseFloat(document.getElementById('pagoCliente').value);
+      const resultadoDiv = document.getElementById('resultadoCambio');
+
+      if (isNaN(pago) || pago < totalFinal){
+        resultadoDiv.classList.remove('hidden');
+        resultadoDiv.innerHTML = '<div class="text-red-600 text-center font-semibold">⚠️ El monto ingresado es insuficiente.</div>';
+        document.getElementById('finalizarCompra').classList.add('hidden');
+        broadcast();
+        return;
+      }
+
+      const cambio = (pago - totalFinal).toFixed(2);
+      document.getElementById('montoTotal').textContent  = `$${fmt(totalFinal)}`;
+      document.getElementById('montoPago').textContent   = `$${fmt(pago)}`;
+      document.getElementById('montoCambio').textContent = `$${cambio}`;
+
+      resultadoDiv.classList.remove('hidden');
+      document.getElementById('finalizarCompra').classList.remove('hidden');
+      broadcast();
+    }
+
+    // Presets de efectivo
+    function bindCashPresets(){
+      document.querySelectorAll('[data-cash]').forEach(b=>{
+        b.addEventListener('click', ()=>{
+          const inp = document.getElementById('pagoCliente');
+          const total = Number((window.totalFinal ?? parseFloat(document.getElementById('totalBruto').textContent)) || 0);
+          const v = b.dataset.cash === 'exact' ? total : Number(b.dataset.cash);
+          inp.value = (isFinite(v) ? v : 0).toFixed(2);
+          calcularCambio();
+        });
+      });
+    }
+
+    // Carrito: quitar
+    async function quitarItem(idx){
+      idx = Number(idx);
+      try {
+        const resp = await fetch('/carrito/eliminar', {
+          method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ index: idx })
+        });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok) return;
+
+        const li = document.querySelector(`li[data-index="${idx}"]`);
+        if (li) li.remove();
+
+        document.querySelectorAll('#listaCarrito li').forEach((el, i) => {
+          el.setAttribute('data-index', i);
+          const btn = el.querySelector('button[onclick^="quitarItem"]');
+          if (btn) btn.setAttribute('onclick', `quitarItem(${i})`);
+        });
+
+        totalVenta = Number(data.total) || 0;
+        totalFinal = totalVenta; // sin redondeo
+        document.getElementById('totalBruto').textContent = fmt(totalVenta);
+
+        document.getElementById('bloquePago').classList.add('hidden');
+        document.getElementById('resultadoCambio').classList.add('hidden');
+        document.getElementById('finalizarCompra').classList.add('hidden');
+        broadcast();
+      } catch(e){ console.error(e); }
+    }
+
+    // Modal manual
+    function abrirManual(){
+      const m = document.getElementById('modalManual');
+      document.getElementById('manNombre').value = '';
+      document.getElementById('manPrecio').value = '';
+      m.classList.remove('hidden'); m.classList.add('flex');
+      setTimeout(()=> document.getElementById('manNombre').focus(), 50);
+    }
+    function cerrarManual(){ const m = document.getElementById('modalManual'); m.classList.add('hidden'); m.classList.remove('flex'); }
+
+    async function agregarManual(){
+      const nombre = (document.getElementById('manNombre').value || '').trim();
+      const precio = Number(document.getElementById('manPrecio').value);
+      if (!nombre){ alert('Escribe un nombre.'); return; }
+      if (!isFinite(precio) || precio < 0){ alert('Precio inválido.'); return; }
+      try{
+        const resp = await fetch('/carrito/agregar_manual', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ nombre, precio }) });
+        const data = await resp.json();
+        if (!resp.ok || !data.ok){ alert('No se pudo agregar.'); return; }
+
+        const ul = document.getElementById('listaCarrito');
+        if (!ul){ location.reload(); return; }
+
+        const idx = ul.querySelectorAll('li').length;
+        const li = document.createElement('li');
+        li.className = 'py-3 flex items-center justify-between';
+        li.setAttribute('data-index', idx);
+        li.innerHTML = `
+          <div class="flex items-center gap-3">
+            <div class="w-9 h-9 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center"><i data-lucide="package" class="w-4 h-4"></i></div>
+            <span data-rol="nombre" class="text-slate-900 font-medium"></span>
+          </div>
+          <div class="flex items-center gap-4">
+            <div data-rol="precio" class="text-slate-900 font-semibold text-lg"></div>
+            <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito" onclick="quitarItem(${idx})">
+              <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
+            </button>
+          </div>
+        `;
+        li.querySelector('[data-rol="nombre"]').textContent = nombre;
+        li.querySelector('[data-rol="precio"]').textContent = '$' + fmt(precio);
+        ul.appendChild(li);
+
+        totalVenta = Number(data.total) || 0;
+        totalFinal = totalVenta; // sin redondeo
+        document.getElementById('totalBruto').textContent = fmt(totalVenta);
+
+        document.getElementById('bloquePago').classList.add('hidden');
+        document.getElementById('resultadoCambio').classList.add('hidden');
+        document.getElementById('finalizarCompra').classList.add('hidden');
+
+        cerrarManual();
         if (window.lucide) lucide.createIcons();
         broadcast();
-      });
-    </script>
-  </main>
+      }catch(e){ console.error(e); alert('Error de red al agregar.'); }
+    }
+
+    // Reloj
+    function tick(){ const el = document.getElementById('clock'); if (!el) return; const d = new Date(); el.textContent = d.toLocaleString(); }
+    setInterval(tick, 1000); tick();
+
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      const code = document.getElementById('codigo'); if (code) code.focus();
+      bindCashPresets();
+      broadcast();
+    });
+  </script>
 </body>
 </html>

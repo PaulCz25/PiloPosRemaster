@@ -1,459 +1,471 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
   <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PilotoPOS – Almacén</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-
-    .card {
-      background: #fff;
-      border-radius: 1rem;
-      box-shadow:
-        0 10px 15px -3px rgba(0,0,0,.08),
-        0 4px 6px -4px rgba(0,0,0,.06);
-      border: 1px solid rgba(14,116,144,.06);
+    :root{
+      --brand-900:#0e7490; --brand-700:#0ea5b0; --brand-600:#0891b2;
+      --ok-600:#059669; --warn-500:#f59e0b; --err-600:#ef4444;
+      --surface:#ffffff; --surface-2:#f8fafc; --border:#e2e8f0;
+      --ink:#111827; --ink-2:#374151;
     }
+    html, body { height: 100%; }
+    body { font-family:'Inter',system-ui; background:linear-gradient(180deg,#f6fbff,#fff); color:var(--ink); }
 
-    .input, .select {
-      border: 1px solid rgba(14,116,144,.18);
-      border-radius: .75rem;
-      padding: .6rem .85rem;
-      outline: none;
-      box-shadow: 0 1px 2px rgba(0,0,0,.04);
-      transition: box-shadow .2s, border-color .2s;
-      background: #fff;
-    }
-    .input:focus, .select:focus {
-      border-color: rgb(14 116 144);
-      box-shadow: 0 0 0 4px rgba(14,116,144,.15);
-    }
+    .card { border-radius: 1rem; background: var(--surface); border: 1px solid var(--border); box-shadow: 0 1px 2px rgba(0,0,0,.03); }
+    .glass { background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70));
+      backdrop-filter: saturate(160%) blur(8px); border:1px solid rgba(14,116,144,.12); border-radius:1rem; }
+    .soft-divider { border-top: 1px solid rgba(2,6,23,.06); }
 
-    .btn {
-      display: inline-flex; align-items: center; gap:.5rem;
-      border-radius: .75rem; font-weight: 600; padding: .55rem .9rem;
-      transition: transform .15s, filter .15s;
-      white-space: nowrap;
-    }
-    .btn:hover { transform: translateY(-1px); filter: brightness(1.02); }
-    .btn-prim { background: #0ea5a4; color: #fff; }
-    .btn-warn { background: #f59e0b; color: #fff; }
-    .btn-danger { background: #ef4444; color: #fff; }
-    .btn-ghost { background:#f3f4f6; color:#111827; }
+    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.70rem; font-weight:700; padding:.6rem .9rem; border:1px solid transparent; background:#f3f4f6; color:var(--ink); transition:.15s; white-space:nowrap; }
+    .btn:hover { background:#e5e7eb; }
+    .btn:focus-visible { outline:none; box-shadow: 0 0 0 2px rgba(14,116,144,.28); }
 
-    .chip { font-weight: 700; font-size: .75rem; padding: .25rem .6rem; border-radius: 9999px; display:inline-block; }
-    .chip-red { background:#fee2e2; color:#991b1b; }
-    .chip-amber { background:#fef3c7; color:#92400e; }
-    .chip-green { background:#dcfce7; color:#065f46; }
-    .chip-cyan { background:#ecfeff; color:#0e7490; border:1px solid rgba(14,116,144,.25); cursor:pointer; }
+    .btn-prim{ background: var(--brand-600); color:#fff; border-color: var(--brand-600); }
+    .btn-prim:hover { background:#0c819e; border-color:#0c819e; }
+    .btn-warn{ background: var(--warn-500); color:#fff; border-color: var(--warn-500); }
+    .btn-danger{ background: var(--err-600); color:#fff; border-color: var(--err-600); }
+    .btn-ghost{ background:#f1f5f9; color:var(--ink); border:1px solid var(--border); }
 
-    .table-wrap { overflow: auto; }
-    thead th {
-      position: sticky; top: 0; z-index: 1;
-      background: #ecfeff; color:#0e7490;
-      border-bottom: 1px solid rgba(14,116,144,.15);
-    }
+    .nav-pills .btn{ border:1px solid #e2e8f0; background:#f1f5f9; color:var(--brand-600); }
+    .nav-pills .btn:hover{ background:#e2e8f0; }
+    .nav-pills .btn-primary{ background:var(--brand-600); color:#fff; border-color:var(--brand-600); }
+    .nav-pills .btn-primary:hover{ background:#0c819e; border-color:#0c819e; }
+
+    .chip { font-weight: 800; font-size: .75rem; padding: .28rem .6rem; border-radius: 9999px; display:inline-block; letter-spacing:.01em; }
+    .chip-red{ background:#fee2e2; color:#991b1b; }
+    .chip-amber{ background:#fef3c7; color:#92400e; }
+    .chip-green{ background:#dcfce7; color:#065f46; }
+    .chip-cyan{ background:#ecfeff; color:#0e7490; border:1px solid rgba(14,116,144,.25); cursor:pointer; }
+
+    .input, .select { border: 1px solid #cbd5e1; border-radius: .70rem; padding: .6rem .85rem; outline: none; background:#fff; color:var(--ink); transition: border-color .15s ease, box-shadow .15s ease; }
+    .input:focus, .select:focus { border-color: var(--brand-600); box-shadow: 0 0 0 2px rgba(14,116,144,.18); }
+
+    .table-wrap { overflow-x:auto; }
+    thead th { position: sticky; top: 0; z-index: 1; background: #ecfeff; color:#0e7490; border-bottom: 1px solid rgba(14,116,144,.15); font-weight:800; font-size:.9rem; }
     tbody tr:hover { background: #fafafa; }
-
-    .filters-sticky {
-      position: sticky; top: 0; z-index: 10;
-      background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%);
-      border-bottom: 1px solid rgba(14,116,144,.08);
-      backdrop-filter: blur(2px);
-    }
-
-    .animate-fade-in { animation: fadeIn .22s ease-out; }
-    @keyframes fadeIn {
-      from { opacity: 0; transform: translateY(6px) scale(.98); }
-      to { opacity: 1; transform: translateY(0) scale(1); }
-    }
-
     .group-header { background:#f8fafc; color:#0e7490; font-weight:800; }
+
+    .filters-sticky { position: sticky; top: 0; z-index: 10; background: linear-gradient(180deg, #f8fafc 0%, #f1f5f9 100%); border-bottom: 1px solid rgba(14,116,144,.08); backdrop-filter: blur(2px); }
+
+    .toast { position:fixed; right:1rem; bottom:1rem; z-index:60; }
+    .toast > div { border-radius: .85rem; padding:.75rem 1rem; color:#fff; box-shadow: 0 10px 25px rgba(0,0,0,.14); }
+
+    table th, table td { vertical-align: middle; padding-top: 0.9rem; padding-bottom: 0.9rem; }
+    .cell-input { display:flex; align-items:center; gap:.5rem; }
+    .input--precio   { min-width: 6.5rem; text-align:center; }
+    .input--cantidad { min-width: 5rem;  text-align:center; }
+    .input--seccion  { min-width: 9rem; }
+
+    @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
-<body class="bg-gray-100">
+<body class="bg-gray-50 min-h-screen">
 
-  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
-    <a href="/" class="hover:underline flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
-    <a href="/almacen" class="hover:underline underline flex items-center gap-2"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
-    <a href="/historial" class="hover:underline flex items-center gap-2"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
-    <!-- ⬇️ NUEVOS enlaces para que el menú muestre todo -->
-    <a href="/centavos" class="hover:underline flex items-center gap-2"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
-    <a href="/proveedores" class="hover:underline flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
-    <!-- ⬆️ Solo se agregaron estas dos líneas -->
-    <a href="/usuarios" class="hover:underline flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
-    <a href="/login" class="hover:underline flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
-  </nav>
-
-  <div class="max-w-5xl mx-auto p-6 mt-8 card">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h1 class="text-2xl font-bold text-cyan-700 mb-1 flex items-center gap-2">
-          <i data-lucide="package-plus" class="w-6 h-6"></i> Módulo de Almacén
-        </h1>
-        <p class="text-gray-600">Registra o edita productos del sistema.</p>
-      </div>
-      <div class="hidden md:flex items-center gap-2 text-xs text-gray-500">
-        <span class="chip chip-red">Agotado</span>
-        <span class="chip chip-amber">Por acabarse</span>
-        <span class="chip chip-green">Stock suficiente</span>
-      </div>
-    </div>
-
-    <!-- Form de alta con SECCIÓN -->
-    <div class="mt-6 grid gap-4 md:grid-cols-5">
-      <input id="codigoNuevo" type="text" placeholder="Código QR" class="input" />
-      <input id="nombreNuevo" type="text" placeholder="Nombre del producto" class="input" />
-      <input id="precioNuevo" type="number" step="0.01" placeholder="Precio" class="input" />
-      <input id="cantidadNuevo" type="number" placeholder="Cantidad" class="input" />
-      <input id="seccionNueva" type="text" placeholder="Sección (p.ej. Lácteos)" class="input" />
-    </div>
-
-    <button onclick="guardarProducto()" class="mt-4 btn btn-prim shadow">
-      <i data-lucide="save"></i> Guardar producto
-    </button>
-  </div>
-
-  <!-- Filtros -->
-  <div class="filters-sticky">
-    <div class="max-w-5xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
-      <div class="flex items-stretch w-full md:w-1/2">
-        <div class="relative flex-1">
-          <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-700"></i>
-          <input type="text" id="busquedaNombre" placeholder="Buscar por nombre..." class="input pl-9 w-full" />
+  <!-- Header más ancho -->
+  <header class="glass max-w-screen-2xl mx-auto mt-4 mb-6 px-4 py-3 md:px-6 md:py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
+          <i data-lucide="box" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--brand-900)] leading-tight">Módulo de Almacén</h1>
+          <p class="text-sm text-slate-600">Registra o edita productos del sistema.</p>
         </div>
       </div>
-      <div class="flex items-center gap-2">
-        <i data-lucide="filter" class="w-4 h-4 text-cyan-700"></i>
-        <select id="filtroSeccion" class="select">
-          <option value="">Todas las secciones</option>
-        </select>
-        <select id="filtroEstado" class="select">
-          <option value="">Estado</option>
-          <option value="Agotado">Agotado</option>
-          <option value="Por acabarse">Por acabarse</option>
-          <option value="Stock suficiente">Stock suficiente</option>
-        </select>
-        <button id="btnAgrupar" class="btn btn-ghost" title="Agrupar por sección">
-          <i data-lucide="layout-grid"></i> Agrupar por sección
-        </button>
+      <nav class="nav-pills hidden md:flex items-center gap-3 text-sm">
+        <a href="/" class="btn"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+        <a href="/almacen" class="btn btn-primary" aria-current="page"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+        <a href="/historial" class="btn"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+        <a href="/centavos" class="btn"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
+        <a href="/proveedores" class="btn"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
+        <a href="/usuarios" class="btn"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
+        <a href="/login" class="btn"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
+      </nav>
+    </div>
+  </header>
+
+  <div class="max-w-screen-2xl mx-auto p-4 md:p-6">
+    <!-- Alta / edición rápida -->
+    <div class="card p-5">
+      <div class="flex items-start justify-between gap-4 flex-wrap">
+        <div>
+          <h2 class="text-xl font-bold text-cyan-700 mb-1 flex items-center gap-2"><i data-lucide="package-plus" class="w-6 h-6"></i> Alta de producto</h2>
+          <p class="text-gray-600 text-sm">Escanea o captura los datos mínimos para añadir un producto.</p>
+        </div>
+        <div class="hidden md:flex items-center gap-2 text-xs text-gray-500">
+          <span class="chip chip-red">Agotado</span>
+          <span class="chip chip-amber">Por acabarse</span>
+          <span class="chip chip-green">Stock suficiente</span>
+        </div>
+      </div>
+
+      <div class="mt-4 grid gap-3 md:grid-cols-5">
+        <input id="codigoNuevo" type="text" placeholder="Código QR" class="input" />
+        <input id="nombreNuevo" type="text" placeholder="Nombre del producto" class="input" />
+        <input id="precioNuevo" type="number" step="0.01" placeholder="Precio" class="input" inputmode="decimal" />
+        <input id="cantidadNuevo" type="number" placeholder="Cantidad" class="input" inputmode="numeric" />
+        <input id="seccionNueva" type="text" placeholder="Sección (p.ej. Lácteos)" class="input" />
+      </div>
+
+      <div class="mt-4 flex items-center gap-2">
+        <button id="btnGuardar" class="btn btn-prim"><i data-lucide="save"></i> Guardar producto</button>
+        <button id="btnLimpiar" class="btn btn-ghost" title="Limpiar campos"><i data-lucide="eraser"></i> Limpiar</button>
       </div>
     </div>
-  </div>
 
-  <!-- Chips de secciones -->
-  <div class="max-w-5xl mx-auto mt-3 px-4" id="chipsSecciones"></div>
-
-  <div class="max-w-5xl mx-auto mt-4 card p-0">
-    <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
-      <h2 class="text-lg font-bold text-cyan-700 flex items-center gap-2">
-        <i data-lucide="clipboard-list" class="w-5 h-5"></i> Productos registrados
-      </h2>
-      <div class="md:hidden text-xs text-gray-500 flex items-center gap-2">
-        <span class="chip chip-red">Agotado</span>
-        <span class="chip chip-amber">Por acabarse</span>
-        <span class="chip chip-green">Stock suficiente</span>
+    <!-- Filtros -->
+    <div class="filters-sticky mt-4">
+      <div class="max-w-screen-2xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+        <div class="flex items-stretch w-full md:w-1/2">
+          <div class="relative flex-1">
+            <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-700"></i>
+            <input type="text" id="busquedaNombre" placeholder="Buscar por nombre..." class="input pl-9 w-full" />
+          </div>
+        </div>
+        <div class="flex items-center gap-2">
+          <i data-lucide="filter" class="w-4 h-4 text-cyan-700"></i>
+          <select id="filtroSeccion" class="select">
+            <option value="">Todas las secciones</option>
+          </select>
+          <select id="filtroEstado" class="select">
+            <option value="">Estado</option>
+            <option value="Agotado">Agotado</option>
+            <option value="Por acabarse">Por acabarse</option>
+            <option value="Stock suficiente">Stock suficiente</option>
+          </select>
+          <button id="btnAgrupar" class="btn btn-ghost" title="Agrupar por sección">
+            <i data-lucide="layout-grid"></i> Agrupar por sección
+          </button>
+        </div>
       </div>
     </div>
 
-    <div class="table-wrap">
-      <table class="w-full text-sm table-fixed">
-        <colgroup>
-          <col class="w-28">
-          <col>
-          <col class="w-36">
-          <col class="w-28">
-          <col class="w-48">
-          <col class="w-60">
-          <col class="w-32">
-        </colgroup>
-        <thead>
-          <tr>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Código</th>
-            <th class="px-4 py-3 text-left">Nombre</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Precio</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Cantidad</th>
-            <th class="px-4 py-3 text-left">Sección</th>
-            <th class="px-4 py-3 text-left">Acciones</th>
-            <th class="px-4 py-3 text-left">Estado</th>
-          </tr>
-        </thead>
-        <tbody id="tablaProductos" class="divide-y divide-gray-100"></tbody>
-      </table>
+    <!-- Chips de secciones -->
+    <div class="max-w-screen-2xl mx-auto mt-3 px-2 md:px-4" id="chipsSecciones"></div>
+
+    <!-- Tabla -->
+    <div class="max-w-screen-2xl mx-auto mt-4 card p-0 overflow-hidden">
+      <div class="px-4 md:px-6 py-4 border-b border-gray-100 flex items-center justify-between">
+        <h3 class="text-lg font-bold text-cyan-700 flex items-center gap-2"><i data-lucide="clipboard-list" class="w-5 h-5"></i> Productos registrados</h3>
+        <div class="md:hidden text-xs text-gray-500 flex items-center gap-2">
+          <span class="chip chip-red">Agotado</span>
+          <span class="chip chip-amber">Por acabarse</span>
+          <span class="chip chip-green">Stock suficiente</span>
+        </div>
+      </div>
+
+      <div class="table-wrap overflow-x-auto lg:overflow-x-visible">
+        <table class="min-w-full table-fixed text-sm">
+          <colgroup>
+            <col class="w-[14%]">
+            <col class="w-[24%]">
+            <col class="w-[12%]">
+            <col class="w-[12%]">
+            <col class="w-[16%]">
+            <col class="w-[14%]">
+            <col class="w-[8%]">
+          </colgroup>
+
+          <thead>
+            <tr>
+              <th class="px-4 text-left whitespace-normal break-words">Código</th>
+              <th class="px-4 text-left whitespace-normal break-words">Nombre</th>
+              <th class="px-4 text-center whitespace-nowrap">Precio</th>
+              <th class="px-4 text-center whitespace-nowrap">Cantidad</th>
+              <th class="px-4 text-left whitespace-normal break-words">Sección</th>
+              <th class="px-4 text-left">Acciones</th>
+              <th class="px-4 text-center">Estado</th>
+            </tr>
+          </thead>
+          <tbody id="tablaProductos" class="divide-y divide-gray-100"></tbody>
+        </table>
+      </div>
     </div>
   </div>
 
   <!-- Modal confirmación -->
-  <div id="modal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center">
-    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center animate-fade-in">
-      <i data-lucide="alert-triangle" class="w-10 h-10 text-amber-500 mx-auto mb-2"></i>
+  <div id="modal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
+    <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
+      <i data-lucide="alert-triangle" class="w-10 h-10 text-amber-500 mx-auto mb-2" aria-hidden="true"></i>
       <h2 id="modalTitulo" class="text-xl font-bold text-gray-800 mb-2">¿Confirmar acción?</h2>
       <p id="modalMensaje" class="text-gray-600 mb-6">¿Estás seguro?</p>
       <div class="flex justify-center gap-3">
-        <button id="btnCancelar" class="btn bg-gray-200 text-gray-700 hover:brightness-95">Cancelar</button>
+        <button id="btnCancelar" class="btn btn-ghost">Cancelar</button>
         <button id="btnConfirmar" class="btn btn-prim">Confirmar</button>
       </div>
     </div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast hidden"></div>
+
   <script>
+    // ===== Estado y utilidades =====
     let accionModal = null;
-    let todosLosProductos = {};
-    let agrupar = false;  // vista agrupada por sección
+    let todosLosProductos = {}; // { codigo: {nombre, precio, cantidad, seccion} }
+    let agrupar = false;
 
-    function guardarProducto() {
-      const codigo = document.getElementById("codigoNuevo").value.trim();
-      const nombre = document.getElementById("nombreNuevo").value.trim();
-      const precio = parseFloat(document.getElementById("precioNuevo").value);
-      const cantidad = parseInt(document.getElementById("cantidadNuevo").value);
-      const seccion = document.getElementById("seccionNueva").value.trim();
+    const $ = (s, p=document) => p.querySelector(s);
+    const n = (v, d=0) => (isFinite(v = Number(v)) ? v : d);
 
-      if (!codigo || !nombre || isNaN(precio) || isNaN(cantidad)) {
-        alert("⚠️ Completa todos los campos correctamente.");
+    const escapeHTML = (str='') =>
+      String(str).replace(/[&<>"']/g, ch => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[ch]));
+
+    // Para usar IDs seguros aunque el código tenga espacios/raros
+    const safeId = (v='') => String(v).replace(/[^\w\-:.]/g, '_');
+
+    function toast(msg, type='ok'){
+      const t = $('#toast');
+      t.className = 'toast';
+      t.innerHTML = `<div class="${type==='ok'?'bg-emerald-600':'bg-red-600'}">${msg}</div>`;
+      t.classList.remove('hidden');
+      setTimeout(()=> t.classList.add('hidden'), 2200);
+    }
+
+    // ===== CRUD =====
+    function guardarProducto(){
+      const codigo = $('#codigoNuevo').value.trim();
+      const nombre = $('#nombreNuevo').value.trim();
+      const precio = n($('#precioNuevo').value);
+      const cantidad = Math.trunc(n($('#cantidadNuevo').value));
+      const seccion = $('#seccionNueva').value.trim();
+
+      if (!codigo || !nombre || !isFinite(precio) || !isFinite(cantidad)){
+        toast('⚠️ Completa todos los campos correctamente.','err');
         return;
       }
 
-      fetch("/guardar_producto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
+      fetch('/guardar_producto', {
+        method:'POST', headers:{'Content-Type':'application/json'},
         body: JSON.stringify({ codigo, nombre, precio, cantidad, seccion })
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert("✅ Producto guardado exitosamente.");
-          document.getElementById("codigoNuevo").value = "";
-          document.getElementById("nombreNuevo").value = "";
-          document.getElementById("precioNuevo").value = "";
-          document.getElementById("cantidadNuevo").value = "";
-          document.getElementById("seccionNueva").value = "";
+      .then(r=>r.json())
+      .then(data=>{
+        if (data.success){
+          toast('✅ Producto guardado');
+          ['codigoNuevo','nombreNuevo','precioNuevo','cantidadNuevo','seccionNueva'].forEach(id=>{ const el=$('#'+id); if(el) el.value=''; });
           cargarProductos();
         } else {
-          alert("❌ Ocurrió un error al guardar.");
+          toast('❌ Ocurrió un error al guardar.','err');
         }
-      });
+      })
+      .catch(()=> toast('❌ Error de red.','err'));
     }
 
-    function cargarProductos() {
-      fetch("/api/productos")
-        .then(res => res.json())
-        .then(productos => {
-          todosLosProductos = productos;
-          poblarSecciones();
-          renderizarProductos();
-        });
+    function cargarProductos(){
+      fetch(`/api/productos?t=${Date.now()}`, { cache: 'no-store' })
+        .then(r=>r.json())
+        .then(productos=>{ todosLosProductos = productos || {}; poblarSecciones(); renderizarProductos(); })
+        .catch(()=> toast('❌ No se pudieron cargar los productos.','err'));
     }
 
-    // Construye lista de secciones para filtro y chips
+    // ===== Secciones y chips =====
     function poblarSecciones(){
       const secciones = new Set();
-      Object.values(todosLosProductos).forEach(p => {
-        const s = (p.seccion || '').trim();
-        if (s) secciones.add(s);
-      });
-      const sel = document.getElementById('filtroSeccion');
+      Object.values(todosLosProductos).forEach(p=>{ const s=(p.seccion||'').trim(); if(s) secciones.add(s); });
+      const sel = $('#filtroSeccion');
       const prev = sel.value;
       sel.innerHTML = '<option value="">Todas las secciones</option>' +
-        Array.from(secciones).sort().map(s => `<option value="${s}">${s}</option>`).join('');
+        Array.from(secciones).sort().map(s=>`<option value="${escapeHTML(s)}">${escapeHTML(s)}</option>`).join('');
       if ([...secciones, ''].includes(prev)) sel.value = prev;
 
-      // chips
       const cont = document.getElementById('chipsSecciones');
       cont.innerHTML = '';
-      Array.from(secciones).sort().forEach(s => {
+      const all = document.createElement('button');
+      all.className = 'chip chip-cyan mr-2 mb-2'; all.textContent = 'Todas';
+      all.onclick = ()=>{ sel.value=''; renderizarProductos(); };
+      cont.appendChild(all);
+      Array.from(secciones).sort().forEach(s=>{
         const chip = document.createElement('button');
-        chip.className = 'chip chip-cyan mr-2 mb-2';
-        chip.textContent = s;
-        chip.onclick = () => { document.getElementById('filtroSeccion').value = s; renderizarProductos(); };
+        chip.className = 'chip chip-cyan mr-2 mb-2'; chip.textContent = s;
+        chip.onclick = ()=>{ sel.value=s; renderizarProductos(); };
         cont.appendChild(chip);
       });
     }
 
+    // ===== Render de filas =====
+    function estadoDeCantidad(cantidad){
+      if (cantidad === 0) return { txt:'Agotado', cls:'chip chip-red' };
+      if (cantidad <= 5)  return { txt:'Por acabarse', cls:'chip chip-amber' };
+      return { txt:'Stock suficiente', cls:'chip chip-green' };
+    }
+
     function renderFila(codigo, prod){
-      const cantidad = prod.cantidad ?? 0;
-      let estadoTexto = "Desconocido";
-      let estadoChip = '<span class="chip">—</span>';
+      const cantidad = n(prod.cantidad, 0);
+      const {txt, cls} = estadoDeCantidad(cantidad);
 
-      if (cantidad === 0) {
-        estadoTexto = "Agotado";
-        estadoChip = '<span class="chip chip-red">Agotado</span>';
-      } else if (cantidad <= 5) {
-        estadoTexto = "Por acabarse";
-        estadoChip = '<span class="chip chip-amber">Por acabarse</span>';
-      } else if (cantidad > 5) {
-        estadoTexto = "Stock suficiente";
-        estadoChip = '<span class="chip chip-green">Stock suficiente</span>';
-      }
+      const nombreSeguro  = escapeHTML(prod.nombre || '');
+      const seccionSeguro = escapeHTML(prod.seccion || '');
+      const codigoId      = safeId(codigo); // para IDs de inputs
 
-      const tr = document.createElement("tr");
+      const tr = document.createElement('tr');
       tr.innerHTML = `
-        <td class="px-4 py-3 font-medium text-gray-800">${codigo}</td>
-        <td class="px-4 py-3 text-gray-700">${prod.nombre ?? ''}</td>
-        <td class="px-4 py-3">
-          <div class="relative">
-            <input type="number" step="0.01" value="${prod.precio ?? 0}" class="input w-32 pr-8" id="precio_${codigo}">
-            <span class="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
+        <td class="px-4 font-medium text-cyan-700 whitespace-normal break-all">${escapeHTML(codigo)}</td>
+        <td class="px-4 text-gray-700 whitespace-normal break-words">${nombreSeguro}</td>
+        <td class="px-4 text-center">
+          <div class="cell-input justify-center">
+            <input type="number" step="0.01" value="${n(prod.precio,0)}" class="input input--precio" id="precio_${codigoId}" inputmode="decimal">
+            <span class="text-gray-400 text-xs">$</span>
           </div>
         </td>
-        <td class="px-4 py-3">
-          <input type="number" value="${cantidad}" class="input w-24" id="cantidad_${codigo}">
+        <td class="px-4 text-center">
+          <input type="number" value="${cantidad}" class="input input--cantidad" id="cantidad_${codigoId}" inputmode="numeric">
         </td>
-        <td class="px-4 py-3">
-          <input type="text" value="${prod.seccion ?? ''}" class="input w-40" id="seccion_${codigo}" placeholder="Sección">
+        <td class="px-4">
+          <input type="text" value="${seccionSeguro}" class="input input--seccion" id="seccion_${codigoId}" placeholder="Sección">
         </td>
-        <td class="px-4 py-3 overflow-visible">
-          <div class="flex items-center gap-2 whitespace-nowrap">
-            <button onclick="abrirModalGuardar('${codigo}', '${(prod.nombre ?? '').replace(/'/g, "\\'")}')" class="btn btn-warn">
+        <td class="px-4">
+          <div class="flex items-center gap-2">
+            <button class="btn btn-warn" data-act="guardar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
               <i data-lucide="save"></i> Guardar
             </button>
-            <button onclick="abrirModalEliminar('${codigo}', '${(prod.nombre ?? '').replace(/'/g, "\\'")}')" class="btn btn-danger">
+            <button class="btn btn-danger" data-act="eliminar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
               <i data-lucide="trash-2"></i> Eliminar
             </button>
           </div>
         </td>
-        <td class="px-4 py-3">${estadoChip}</td>
-      `;
-      return {tr, estadoTexto};
+        <td class="px-4 text-center"><span class="${cls}">${txt}</span></td>`;
+      // Guardamos el código real en dataset del <tr> por si hace falta
+      tr.dataset.codigoReal = codigo;
+      return tr;
     }
 
-    function renderizarProductos() {
-      const tbody = document.getElementById("tablaProductos");
-      tbody.innerHTML = "";
+    function renderizarProductos(){
+      const tbody = document.getElementById('tablaProductos');
+      tbody.innerHTML = '';
 
-      const filtroNombre = document.getElementById("busquedaNombre").value.toLowerCase();
-      const filtroEstado = document.getElementById("filtroEstado").value;
-      const filtroSeccion = document.getElementById("filtroSeccion").value;
+      const filtroNombre = (document.getElementById('busquedaNombre').value || '').toLowerCase();
+      const filtroEstado = document.getElementById('filtroEstado').value;
+      const filtroSeccion = document.getElementById('filtroSeccion').value;
 
-      // Agrupar por sección si corresponde
       const grupos = {};
-      for (const codigo in todosLosProductos) {
-        const prod = todosLosProductos[codigo];
-        const nombre = (prod.nombre || "").toLowerCase();
+      for (const codigo in todosLosProductos){
+        const prod = todosLosProductos[codigo] || {};
+        const nombre = (prod.nombre || '').toLowerCase();
         const seccion = (prod.seccion || 'Sin sección').trim() || 'Sin sección';
 
         if (filtroNombre && !nombre.includes(filtroNombre)) continue;
         if (filtroSeccion && seccion !== filtroSeccion) continue;
 
-        const {tr, estadoTexto} = renderFila(codigo, prod);
-        if (filtroEstado && filtroEstado !== estadoTexto) continue;
+        const cantidad = n(prod.cantidad,0);
+        const estadoTxt = estadoDeCantidad(cantidad).txt;
+        if (filtroEstado && filtroEstado !== estadoTxt) continue;
 
-        if (!agrupar) {
-          tbody.appendChild(tr);
-        } else {
-          if (!grupos[seccion]) grupos[seccion] = [];
-          grupos[seccion].push(tr);
-        }
+        const tr = renderFila(codigo, prod);
+        if (!agrupar) tbody.appendChild(tr);
+        else { (grupos[seccion] ||= []).push(tr); }
       }
 
-      if (agrupar) {
-        Object.keys(grupos).sort().forEach(sec => {
+      if (agrupar){
+        Object.keys(grupos).sort().forEach(sec=>{
           const header = document.createElement('tr');
           header.className = 'group-header';
-          header.innerHTML = `<td class="px-4 py-2" colspan="7">${sec}</td>`;
+          header.innerHTML = `<td class="px-4 py-2" colspan="7">${escapeHTML(sec)}</td>`;
           tbody.appendChild(header);
-          grupos[sec].forEach(tr => tbody.appendChild(tr));
+          grupos[sec].forEach(tr=> tbody.appendChild(tr));
         });
       }
 
       if (window.lucide) lucide.createIcons();
     }
 
-    function abrirModalGuardar(codigo, nombre) {
-      mostrarModal("¿Guardar cambios?", `¿Deseas guardar los cambios de <strong>${nombre}</strong>?`, () => editarProducto(codigo, nombre));
+    // ===== Modal =====
+    function abrirModalGuardar(codigoId, nombre){
+      mostrarModal('¿Guardar cambios?', `¿Deseas guardar los cambios de <strong>${escapeHTML(nombre)}</strong>?`, () => editarProducto(codigoId, nombre));
     }
-
-    function abrirModalEliminar(codigo, nombre) {
-      mostrarModal("⚠️ Confirmar eliminación", `¿Eliminar el producto <strong>${nombre}</strong>? Esta acción no se puede deshacer.`, () => eliminarProducto(codigo));
+    function abrirModalEliminar(codigoId, nombre){
+      mostrarModal('⚠️ Confirmar eliminación', `¿Eliminar el producto <strong>${escapeHTML(nombre)}</strong>? Esta acción no se puede deshacer.`, () => eliminarProducto(codigoId));
     }
-
-    function mostrarModal(titulo, mensaje, accionConfirmar) {
-      document.getElementById("modalTitulo").textContent = titulo;
-      document.getElementById("modalMensaje").innerHTML = mensaje;
-      const modal = document.getElementById("modal");
-      modal.classList.remove("hidden");
-      modal.classList.add("flex");
+    function mostrarModal(titulo, mensaje, accionConfirmar){
+      document.getElementById('modalTitulo').textContent = titulo;
+      document.getElementById('modalMensaje').innerHTML = mensaje;
+      const modal = document.getElementById('modal');
+      modal.classList.remove('hidden'); modal.classList.add('flex');
       accionModal = accionConfirmar;
     }
-
-    document.getElementById("btnCancelar").addEventListener("click", () => {
-      const modal = document.getElementById("modal");
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-      accionModal = null;
+    document.getElementById('btnCancelar').addEventListener('click', ()=>{
+      const m=document.getElementById('modal');
+      m.classList.add('hidden'); m.classList.remove('flex'); accionModal=null;
     });
-
-    document.getElementById("btnConfirmar").addEventListener("click", () => {
+    document.getElementById('btnConfirmar').addEventListener('click', ()=>{
       if (accionModal) accionModal();
-      const modal = document.getElementById("modal");
-      modal.classList.add("hidden");
-      modal.classList.remove("flex");
-      accionModal = null;
+      const m=document.getElementById('modal');
+      m.classList.add('hidden'); m.classList.remove('flex'); accionModal=null;
     });
 
-    function editarProducto(codigo, nombre) {
-      const precio = parseFloat(document.getElementById(`precio_${codigo}`).value);
-      const cantidad = parseInt(document.getElementById(`cantidad_${codigo}`).value);
-      const seccion = document.getElementById(`seccion_${codigo}`).value.trim();
+    // ===== Acciones =====
+    function editarProducto(codigoId, nombre){
+      const precio  = n(document.getElementById(`precio_${codigoId}`).value);
+      const cantidad= Math.trunc(n(document.getElementById(`cantidad_${codigoId}`).value));
+      const seccion = (document.getElementById(`seccion_${codigoId}`).value || '').trim();
+      if (!isFinite(precio) || !isFinite(cantidad)) { toast('⚠️ Ingresa datos válidos.','err'); return; }
 
-      if (isNaN(precio) || isNaN(cantidad)) {
-        alert("⚠️ Ingresa datos válidos.");
-        return;
-      }
+      // Recuperar el código REAL desde la fila (por si hubo normalización en el id)
+      const tr = document.getElementById(`cantidad_${codigoId}`)?.closest('tr');
+      const codigoReal = tr?.dataset.codigoReal ?? codigoId;
 
-      fetch("/guardar_producto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo, nombre, precio, cantidad, seccion })
+      fetch('/guardar_producto', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ codigo: codigoReal, nombre, precio, cantidad, seccion })
       })
-      .then(res => res.json())
-      .then(data => {
-        if (data.success) {
-          alert("✅ Producto actualizado.");
-          cargarProductos();
-        } else {
-          alert("❌ No se pudo actualizar.");
-        }
-      });
+      .then(r=>r.json())
+      .then(data=>{ if (data.success){ toast('✅ Producto actualizado'); cargarProductos(); } else { toast('❌ No se pudo actualizar.','err'); } })
+      .catch(()=> toast('❌ Error de red.','err'));
     }
 
-    function eliminarProducto(codigo) {
-      fetch("/eliminar_producto", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ codigo })
+    function eliminarProducto(codigoId){
+      const tr = document.getElementById(`cantidad_${codigoId}`)?.closest('tr');
+      const codigoReal = tr?.dataset.codigoReal ?? codigoId;
+
+      fetch('/eliminar_producto', {
+        method:'POST', headers:{'Content-Type':'application/json'},
+        body: JSON.stringify({ codigo: codigoReal })
       })
-      .then(async res => {
-        let data = {};
-        try { data = await res.json(); } catch (_) {}
-        return { status: res.status, data };
-      })
-      .then(({ status, data }) => {
-        if (data && data.success) {
-          alert("✅ Producto eliminado.");
-          cargarProductos();
-        } else {
-          alert(data?.message || "❌ No se pudo eliminar.");
-        }
-      })
-      .catch(() => alert("❌ Error de red al eliminar."));
+      .then(async res => { let data={}; try{ data=await res.json(); }catch(_){ } return { status: res.status, data }; })
+      .then(({data})=>{ if (data && data.success){ toast('✅ Producto eliminado'); cargarProductos(); } else { toast(data?.message || '❌ No se pudo eliminar.','err'); } })
+      .catch(()=> toast('❌ Error de red al eliminar.','err'));
     }
 
-    document.getElementById("busquedaNombre").addEventListener("input", renderizarProductos);
-    document.getElementById("filtroEstado").addEventListener("change", renderizarProductos);
-    document.getElementById("filtroSeccion").addEventListener("change", renderizarProductos);
-    document.getElementById("btnAgrupar").addEventListener("click", () => {
+    // Delegación para botones (usamos data-nom otra vez)
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const codigoId = btn.getAttribute('data-cod');
+      const nombre   = btn.getAttribute('data-nom') || '';
+      if (btn.dataset.act === 'guardar') abrirModalGuardar(codigoId, nombre);
+      if (btn.dataset.act === 'eliminar') abrirModalEliminar(codigoId, nombre);
+    });
+
+    // ===== Filtros / búsqueda =====
+    function debounce(fn, wait=180){ let t; return (...a)=>{ clearTimeout(t); t=setTimeout(()=>fn(...a), wait); }; }
+    const debouncedRender = debounce(renderizarProductos, 160);
+
+    document.getElementById('busquedaNombre').addEventListener('input', debouncedRender);
+    document.getElementById('filtroEstado').addEventListener('change', renderizarProductos);
+    document.getElementById('filtroSeccion').addEventListener('change', renderizarProductos);
+    document.getElementById('btnAgrupar').addEventListener('click', ()=>{
       agrupar = !agrupar;
-      document.getElementById('btnAgrupar').innerHTML = agrupar
-        ? '<i data-lucide="list-tree"></i> Vista plana'
-        : '<i data-lucide="layout-grid"></i> Agrupar por sección';
-      renderizarProductos();
-      if (window.lucide) lucide.createIcons();
+      document.getElementById('btnAgrupar').innerHTML =
+        agrupar ? '<i data-lucide="list-tree"></i> Vista plana' : '<i data-lucide="layout-grid"></i> Agrupar por sección';
+      renderizarProductos(); if (window.lucide) lucide.createIcons();
     });
 
-    cargarProductos();
-    if (window.lucide) lucide.createIcons();
+    // Eventos iniciales
+    document.getElementById('btnGuardar').addEventListener('click', guardarProducto);
+    document.getElementById('btnLimpiar').addEventListener('click', ()=>{
+      ['codigoNuevo','nombreNuevo','precioNuevo','cantidadNuevo','seccionNueva'].forEach(id=>{
+        const el=document.getElementById(id); if(el) el.value='';
+      });
+    });
+
+    cargarProductos(); if (window.lucide) lucide.createIcons();
   </script>
 </body>
 </html>

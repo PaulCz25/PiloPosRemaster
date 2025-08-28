@@ -1,117 +1,170 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
   <title>PilotoPOS – Historial</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
   <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { font-family: 'Inter', sans-serif; }
-    .card {
-      background-color: white;
-      border-radius: 1rem;
-      box-shadow: 0 2px 8px rgba(0,0,0,0.05);
-      padding: 1.5rem;
+    :root{
+      --brand-900:#0e7490;
+      --brand-700:#0ea5b0;
+      --brand-600:#0891b2;
+      --ok-600:#059669;
+      --ink:#0f172a;        /* slate-900 */
+      --ink-2:#334155;      /* slate-700 */
+      --surface:#ffffff;
+      --surface-2:#f8fafc;  /* slate-50/100 */
+      --border:#e2e8f0;     /* slate-200 */
     }
-    th.sortable { cursor: pointer; user-select: none; }
-    th.sortable:hover { background: rgba(14,116,144,.08); }
+    html, body { height:100%; }
+    body { font-family:'Inter',system-ui; background: linear-gradient(180deg,#f6fbff, #ffffff); color:var(--ink); }
+
+    /* Glass header card */
+    .glass {
+      background: linear-gradient(180deg, rgba(255,255,255,.85), rgba(255,255,255,.70));
+      backdrop-filter: saturate(160%) blur(8px);
+      border:1px solid rgba(14,116,144,.12);
+      border-radius:1rem;
+    }
+
+    /* Reusable card */
+    .card {
+      background: var(--surface);
+      border-radius: 1rem;
+      border: 1px solid var(--border);
+      box-shadow: 0 1px 2px rgba(0,0,0,.03);
+      padding: 1.25rem;
+    }
+
+    /* Inputs & buttons */
+    .input { border: 1px solid #cbd5e1; background:#fff; color:var(--ink); border-radius:.7rem; padding:.65rem .85rem; width:100%; transition: border-color .15s, box-shadow .15s; }
+    .input:focus { border-color: var(--brand-600); outline:none; box-shadow:0 0 0 2px rgba(14,116,144,.18); }
+
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border-radius:.65rem; font-weight:700; padding:.6rem .9rem; font-size:.9rem; border:1px solid #e2e8f0; background:#f1f5f9; color:var(--brand-600); transition: background-color .15s, border-color .15s; }
+    .btn:hover { background:#e2e8f0; }
+    .btn-primary { background:var(--brand-600); color:#fff; border-color:var(--brand-600); }
+    .btn-primary:hover { background:#0c819e; border-color:#0c819e; }
+    .btn-emerald { background:var(--ok-600); color:#fff; border-color:var(--ok-600); }
+
+    /* Pills (rangos rápidos) */
+    .pill { padding:.45rem .9rem; border-radius:9999px; font-weight:700; font-size:.85rem; }
+    .pill-range { background:#ecfeff; color:#0e7490; border:1px solid #a5f3fc; }
+    .pill-range:hover { filter:brightness(1.03); }
+
+    /* KPIs */
+    .kpi h2{ font-size:.8rem; color:#64748b; margin-bottom:.25rem }
+    .kpi p{ font-size:1.35rem; font-weight:800; color:var(--brand-900) }
+
+    /* Tabla (misma lógica del código anterior: ancho, sticky, overflow) */
+    .table-wrap{ overflow-x:auto; border-radius:.8rem; border:1px solid var(--border); }
+    table { width:100%; font-size:.92rem; }
+    thead { position:sticky; top:0; z-index:1; background:#ecfeff; color:#0e7490; }
+    th{ padding:.6rem .9rem; text-align:left; font-weight:800; white-space:nowrap; }
+    th.sortable{ cursor:pointer; user-select:none; }
+    th.sortable:hover{ background:rgba(14,116,144,.08); }
+    td{ padding:.6rem .9rem; color:#0f172a; }
+    tr:hover td{ background:#f8fafc; }
+
+    .empty { text-align:center; color:#64748b; padding:1.1rem; }
+
+    @media (prefers-reduced-motion: reduce){ *{ transition:none !important; } }
   </style>
 </head>
-<body class="bg-gray-100">
+<body class="min-h-screen">
 
-  <!-- Navbar -->
-  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
-    <a href="/" class="hover:underline flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
-    <a href="/almacen" class="hover:underline flex items-center gap-2"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
-    <a href="/historial" class="underline flex items-center gap-2"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
-    <a href="/centavos" class="hover:underline flex items-center gap-2"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
-    <a href="/proveedores" class="hover:underline flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
-    <a href="/usuarios" class="hover:underline flex items-center gap-2"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
-    <a href="/login" class="hover:underline flex items-center gap-2"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
-  </nav>
+  <!-- Header ancho y centrado -->
+  <header class="glass max-w-7xl mx-auto mt-4 mb-6 px-4 py-3 md:px-6 md:py-4">
+    <div class="flex items-center justify-between">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
+          <i data-lucide="line-chart" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--brand-900)]">Historial de Ventas</h1>
+          <p class="text-sm text-slate-500">Analiza tus ventas y descargas de forma rápida.</p>
+        </div>
+      </div>
+      <!-- Nav de Lopez, estilizado con botones -->
+      <nav class="hidden md:flex items-center gap-3 text-sm">
+        <a href="/" class="btn"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+        <a href="/almacen" class="btn"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+        <a href="/historial" class="btn btn-primary"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+        <a href="/centavos" class="btn"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
+        <a href="/proveedores" class="btn"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
+        <a href="/usuarios" class="btn"><i data-lucide="users" class="w-4 h-4"></i> Usuarios</a>
+        <a href="/login" class="btn"><i data-lucide="lock" class="w-4 h-4"></i> Login</a>
+      </nav>
+    </div>
+  </header>
 
-  <main class="max-w-7xl mx-auto py-10 px-6">
-    <h1 class="text-3xl font-bold text-cyan-700 mb-8 text-center flex items-center justify-center gap-2">
-      <i data-lucide="line-chart" class="w-7 h-7"></i> Historial de Ventas
-    </h1>
-
+  <main class="max-w-7xl mx-auto pb-12 px-4 md:px-6">
     <!-- Filtros -->
-    <div class="grid md:grid-cols-3 gap-4 mb-4">
-      <input type="date" id="fechaInicio" class="p-2 border rounded-xl shadow-sm" placeholder="Desde...">
-      <input type="date" id="fechaFin" class="p-2 border rounded-xl shadow-sm" placeholder="Hasta...">
-      <input type="text" id="busqueda" placeholder="Buscar producto..." class="p-2 border rounded-xl shadow-sm">
-    </div>
-
-    <!-- Rangos rápidos + acciones -->
-    <div class="flex flex-wrap items-center gap-2 mb-8">
-      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="hoy">Hoy</button>
-      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="7">Últimos 7 días</button>
-      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="30">Últimos 30 días</button>
-      <button class="px-3 py-1.5 rounded-lg bg-cyan-100 text-cyan-800 hover:brightness-105" data-rango="todo">Todo</button>
-      <div class="ml-auto flex gap-2">
-        <button id="btnExportCsv" class="px-3 py-1.5 rounded-lg bg-emerald-600 text-white hover:brightness-105 flex items-center gap-2">
-          <i data-lucide="file-down" class="w-4 h-4"></i> Exportar CSV
-        </button>
-        <button id="btnDescargarGrafica" class="px-3 py-1.5 rounded-lg bg-slate-700 text-white hover:brightness-105 flex items-center gap-2">
-          <i data-lucide="image-down" class="w-4 h-4"></i> Descargar gráfica
-        </button>
+    <section class="card mb-6">
+      <div class="grid md:grid-cols-3 gap-3">
+        <input type="date" id="fechaInicio" class="input" placeholder="Desde..." />
+        <input type="date" id="fechaFin" class="input" placeholder="Hasta..." />
+        <input type="text" id="busqueda" placeholder="Buscar producto..." class="input" />
       </div>
-    </div>
-
-    <!-- KPIs -->
-    <section class="grid md:grid-cols-4 gap-6 mb-10">
-      <div class="card">
-        <h2 class="text-sm text-gray-500 mb-1">Ingresos hoy</h2>
-        <p id="ingresosHoy" class="text-2xl font-bold text-cyan-700">$0.00</p>
-      </div>
-      <div class="card">
-        <h2 class="text-sm text-gray-500 mb-1">Ingresos (rango)</h2>
-        <p id="ingresosRango" class="text-2xl font-bold text-cyan-700">$0.00</p>
-      </div>
-      <div class="card">
-        <h2 class="text-sm text-gray-500 mb-1">Redondeo (rango)</h2>
-        <p id="redondeoRango" class="text-2xl font-bold text-cyan-700">$0.00</p>
-      </div>
-      <div class="card">
-        <h2 class="text-sm text-gray-500 mb-1">Producto más vendido</h2>
-        <p id="productoMasVendido" class="text-lg font-semibold text-gray-700">—</p>
+      <div class="flex flex-wrap items-center gap-2 mt-3">
+        <button class="pill pill-range" data-rango="hoy">Hoy</button>
+        <button class="pill pill-range" data-rango="7">Últimos 7 días</button>
+        <button class="pill pill-range" data-rango="30">Últimos 30 días</button>
+        <button class="pill pill-range" data-rango="todo">Todo</button>
+        <div class="ml-auto flex gap-2">
+          <button id="btnExportCsv" class="btn btn-emerald"><i data-lucide="file-down" class="w-4 h-4"></i> Exportar CSV</button>
+          <button id="btnDescargarGrafica" class="btn"><i data-lucide="image-down" class="w-4 h-4"></i> Descargar gráfica</button>
+        </div>
       </div>
     </section>
 
+    <!-- KPIs -->
+    <section class="grid md:grid-cols-4 gap-4 mb-6">
+      <div class="card kpi"><h2>Ingresos hoy</h2><p id="ingresosHoy">$0.00</p></div>
+      <div class="card kpi"><h2>Ingresos (rango)</h2><p id="ingresosRango">$0.00</p></div>
+      <div class="card kpi"><h2>Redondeo (rango)</h2><p id="redondeoRango">$0.00</p></div>
+      <div class="card kpi"><h2>Producto más vendido</h2><p id="productoMasVendido" class="text-[var(--ink-2)] text-lg font-semibold">—</p></div>
+    </section>
+
     <!-- Gráfica -->
-    <div class="card mb-10">
-      <h3 class="text-lg font-semibold text-gray-700 mb-4 flex items-center gap-2">
-        <i data-lucide="bar-chart-3" class="w-5 h-5 text-cyan-700"></i> Ingresos por día
+    <section class="card mb-6">
+      <h3 class="text-lg font-bold text-[var(--ink)] mb-3 flex items-center gap-2">
+        <i data-lucide="bar-chart-3" class="w-5 h-5 text-[var(--brand-600)]"></i> Ingresos por día
       </h3>
       <canvas id="graficaIngresos" height="100"></canvas>
-    </div>
+    </section>
 
     <!-- Tabla -->
-    <div class="card overflow-x-auto">
-      <div class="flex items-center justify-between mb-4">
-        <h3 class="text-xl font-bold text-cyan-700 flex items-center gap-2">
-          <i data-lucide="file-text" class="w-5 h-5 text-cyan-700"></i> Historial de ventas
+    <section class="card">
+      <div class="flex items-center justify-between mb-3">
+        <h3 class="text-xl font-extrabold text-[var(--brand-900)] flex items-center gap-2">
+          <i data-lucide="file-text" class="w-5 h-5 text-[var(--brand-600)]"></i> Historial de ventas
         </h3>
-        <div class="text-sm text-gray-500" id="resumenFiltrado">0 ventas</div>
+        <div class="text-sm text-slate-500" id="resumenFiltrado" aria-live="polite">0 ventas</div>
       </div>
-      <table class="min-w-full text-sm">
-        <thead class="bg-cyan-100 text-cyan-800">
-          <tr>
-            <th class="px-4 py-2 text-left sortable" data-col="fecha">Fecha</th>
-            <th class="px-4 py-2 text-left">Productos</th>
-            <th class="px-4 py-2 text-left sortable" data-col="total">Total</th>
-            <th class="px-4 py-2 text-left sortable" data-col="redondeo">Redondeo</th>
-          </tr>
-        </thead>
-        <tbody id="tablaHistorial" class="divide-y"></tbody>
-      </table>
-      <div id="vacio" class="text-center text-gray-500 py-6 hidden">No hay ventas para los filtros seleccionados.</div>
-    </div>
+
+      <div class="table-wrap">
+        <table class="min-w-full">
+          <thead>
+            <tr>
+              <th class="sortable" data-col="fecha">Fecha <span class="inline-block align-middle" id="ico_fecha"></span></th>
+              <th>Productos</th>
+              <th class="sortable" data-col="total">Total <span class="inline-block align-middle" id="ico_total"></span></th>
+              <th class="sortable" data-col="redondeo">Redondeo <span class="inline-block align-middle" id="ico_redondeo"></span></th>
+            </tr>
+          </thead>
+          <tbody id="tablaHistorial" class="divide-y"></tbody>
+        </table>
+      </div>
+      <div id="vacio" class="empty hidden">No hay ventas para los filtros seleccionados.</div>
+    </section>
   </main>
 
   <script>
-    // Utilidades de fecha sin zona horaria
+    // ---------------- Utilidades ----------------
     const isoToday = () => {
       const d = new Date();
       const yyyy = d.getFullYear();
@@ -119,20 +172,22 @@
       const dd = String(d.getDate()).padStart(2,'0');
       return `${yyyy}-${mm}-${dd}`;
     };
-    const dkey = s => (s || '').slice(0,10); // 'YYYY-MM-DD' desde API
+    const dkey = s => (s || '').slice(0,10); // 'YYYY-MM-DD'
+    const fmtMoney = n => '$' + Number(n || 0).toFixed(2);
+
+    // Pequeño debounce para filtros (como en el módulo anterior)
+    const debounce = (fn, t=180) => { let to; return (...a)=>{ clearTimeout(to); to=setTimeout(()=>fn(...a), t); }; };
 
     let ventasRaw = [];
     let ventasFiltradas = [];
     let chartRef = null;
     let sortState = { col: 'fecha', asc: false };
 
-    const fmtMoney = n => '$' + Number(n || 0).toFixed(2);
-
+    // ---------------- Carga inicial ----------------
     async function cargarHistorial() {
       const res = await fetch('/api/historial', { cache: 'no-store' });
       ventasRaw = await res.json();
 
-      // KPI de hoy por comparación de strings ISO
       const hoyISO = isoToday();
       const totalHoy = ventasRaw
         .filter(v => dkey(v.fecha) === hoyISO)
@@ -146,6 +201,7 @@
       if (window.lucide) lucide.createIcons();
     }
 
+    // ---------------- Filtros, KPIs y render ----------------
     function aplicarFiltros() {
       const q = (document.getElementById('busqueda').value || '').toLowerCase().trim();
       const fi = document.getElementById('fechaInicio').value; // ISO
@@ -167,6 +223,7 @@
       document.getElementById('redondeoRango').textContent = fmtMoney(redondeoRango);
       document.getElementById('resumenFiltrado').textContent = `${ventasFiltradas.length} venta(s)`;
 
+      // Producto más vendido
       const conteo = {};
       ventasFiltradas.forEach(v => (v.productos || []).forEach(p => {
         conteo[p.nombre] = (conteo[p.nombre] || 0) + (p.cantidad || 0);
@@ -191,7 +248,7 @@
       } else if (tipo === '30') {
         const d = new Date(hoy + 'T00:00:00'); d.setDate(d.getDate() - 29);
         inicio = d.toISOString().slice(0,10);
-      } else {
+      } else { // 'todo'
         inicio = '';
       }
       document.getElementById('fechaInicio').value = inicio;
@@ -204,7 +261,6 @@
       ventasFiltradas.forEach(venta => {
         const productosTxt = (venta.productos || []).map(p => `${p.nombre} x${p.cantidad}`).join(', ');
         const tr = document.createElement("tr");
-        tr.className = "hover:bg-gray-50";
         tr.innerHTML = `
           <td class="px-4 py-2">${venta.fecha} ${venta.hora || ''}</td>
           <td class="px-4 py-2">${productosTxt}</td>
@@ -217,6 +273,14 @@
 
     function ordenar(col, asc, rerender = true) {
       sortState = { col, asc };
+      // Iconos de sort (▲▼)
+      ['fecha','total','redondeo'].forEach(c=>{
+        const el = document.getElementById('ico_'+c);
+        if (!el) return;
+        if (c !== col) { el.textContent = ''; return; }
+        el.textContent = asc ? '▲' : '▼';
+      });
+
       ventasFiltradas.sort((a,b) => {
         let va, vb;
         if (col === 'fecha') {
@@ -232,14 +296,13 @@
     }
 
     function renderGrafica() {
-      // Agrupar por día de la semana
-      const totales = [0,0,0,0,0,0,0]; // 0=Dom ... 6=Sáb
+      // Agrupar por día de la semana (Dom..Sáb) y reordenar a Lun..Dom
+      const totales = [0,0,0,0,0,0,0];
       ventasFiltradas.forEach(v => {
         const d = new Date(dkey(v.fecha) + 'T00:00:00');
         const dow = d.getDay();
         totales[dow] += (v.total || 0);
       });
-      // Reordenar a Lun..Dom
       const labels = ['lunes','martes','miércoles','jueves','viernes','sábado','domingo'];
       const valores = [totales[1], totales[2], totales[3], totales[4], totales[5], totales[6], totales[0]];
 
@@ -253,17 +316,20 @@
             label: 'Ingresos ($)',
             data: valores,
             fill: true,
-            tension: 0.4,
-            borderColor: 'rgb(14 116 144)',
-            backgroundColor: 'rgba(14, 116, 144, 0.2)',
-            pointBackgroundColor: 'rgb(14 116 144)',
-            pointRadius: 5
+            tension: 0.35,
+            borderColor: 'rgb(14,116,144)',
+            backgroundColor: 'rgba(14,116,144,0.18)',
+            pointBackgroundColor: 'rgb(14,116,144)',
+            pointRadius: 4
           }]
         },
         options: {
           responsive: true,
           plugins: { legend: { display: false }},
-          scales: { y: { beginAtZero: true }}
+          scales: {
+            x: { grid: { display:false } },
+            y: { beginAtZero: true, ticks:{ callback:v=>'$'+v } }
+          }
         }
       });
     }
@@ -278,9 +344,7 @@
       const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
       const url = URL.createObjectURL(blob);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `historial_${isoToday()}.csv`;
-      a.click();
+      a.href = url; a.download = `historial_${isoToday()}.csv`; a.click();
       URL.revokeObjectURL(url);
     }
 
@@ -288,20 +352,21 @@
       if (!chartRef) return;
       const url = chartRef.toBase64Image('image/png', 1);
       const a = document.createElement('a');
-      a.href = url;
-      a.download = `ingresos_${isoToday()}.png`;
-      a.click();
+      a.href = url; a.download = `ingresos_${isoToday()}.png`; a.click();
     }
 
-    // Listeners
-    document.getElementById('busqueda').addEventListener('input', aplicarFiltros);
+    // ---------------- Listeners ----------------
+    const applyFiltersDebounced = debounce(aplicarFiltros, 160);
+    document.getElementById('busqueda').addEventListener('input', applyFiltersDebounced);
     document.getElementById('fechaInicio').addEventListener('change', aplicarFiltros);
     document.getElementById('fechaFin').addEventListener('change', aplicarFiltros);
+
     document.querySelectorAll('[data-rango]').forEach(btn => {
       btn.addEventListener('click', () => { setRangoRapido(btn.dataset.rango); aplicarFiltros(); });
     });
     document.getElementById('btnExportCsv').addEventListener('click', exportCsv);
     document.getElementById('btnDescargarGrafica').addEventListener('click', descargarGrafica);
+
     document.querySelectorAll('th.sortable').forEach(th => {
       th.addEventListener('click', () => {
         const col = th.dataset.col;
@@ -310,6 +375,7 @@
       });
     });
 
+    // Init
     cargarHistorial();
     if (window.lucide) lucide.createIcons();
   </script>

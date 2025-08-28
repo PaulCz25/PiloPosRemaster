@@ -3,64 +3,70 @@
 <head>
   <meta charset="UTF-8" />
   <title>PilotoPOS – Panel de datos</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script src="https://unpkg.com/lucide@latest"></script>
   <style>
-    body { font-family: ui-sans-serif, system-ui, -apple-system, "Inter", "Segoe UI", Roboto, "Helvetica Neue", Arial, "Apple Color Emoji", "Segoe UI Emoji"; }
-    .card {
-      background:#fff; border-radius:1rem;
-      box-shadow:0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06);
-      border:1px solid rgba(14,116,144,.06);
+    :root{
+      --brand-600:#0891b2; --brand-900:#0e7490;
+      --ok-600:#059669; --warn-500:#f59e0b; --err-600:#ef4444;
+      --border:#e2e8f0; --ink:#0f172a;
     }
-    .input, .select {
-      border:1px solid rgba(14,116,144,.18); border-radius:.75rem; padding:.6rem .85rem; outline:none;
-      box-shadow:0 1px 2px rgba(0,0,0,.04); transition:box-shadow .2s, border-color .2s; background:#fff;
-    }
-    .input:focus, .select:focus { border-color:rgb(14 116 144); box-shadow:0 0 0 4px rgba(14,116,144,.15); }
-    .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.75rem; font-weight:600; padding:.55rem .9rem; transition:.15s; white-space:nowrap; }
-    .btn:hover { transform:translateY(-1px); filter:brightness(1.02); }
-    .btn-prim{background:#0ea5a4;color:#fff}.btn-warn{background:#f59e0b;color:#fff}.btn-danger{background:#ef4444;color:#fff}.btn-ghost{background:#f3f4f6;color:#111827}
-    .table-wrap{overflow:auto}
-    thead th{position:sticky;top:0;z-index:1;background:#ecfeff;color:#0e7490;border-bottom:1px solid rgba(14,116,144,.15)}
+    body{font-family:ui-sans-serif,system-ui,-apple-system,"Inter","Segoe UI",Roboto,"Helvetica Neue",Arial;background:linear-gradient(180deg,#f6fbff,#fff);color:var(--ink)}
+    .glass{background:linear-gradient(180deg,rgba(255,255,255,.85),rgba(255,255,255,.7));border:1px solid rgba(14,116,144,.12);border-radius:1rem;backdrop-filter:saturate(160%) blur(8px)}
+    .card{background:#fff;border-radius:1rem;box-shadow:0 1px 2px rgba(0,0,0,.04);border:1px solid var(--border)}
+    .input,.select{border:1px solid rgba(14,116,144,.18);border-radius:.75rem;padding:.6rem .85rem;outline:none;box-shadow:0 1px 2px rgba(0,0,0,.04);transition:.2s;background:#fff}
+    .input:focus,.select:focus{border-color:rgb(14 116 144);box-shadow:0 0 0 4px rgba(14,116,144,.15)}
+    .btn{display:inline-flex;align-items:center;gap:.5rem;border-radius:.7rem;font-weight:700;padding:.6rem .9rem;border:1px solid #e2e8f0;background:#f1f5f9;color:var(--brand-600);transition:.15s;white-space:nowrap}
+    .btn:hover{background:#e2e8f0}
+    .btn-prim{background:#0ea5a4;color:#fff;border-color:#0ea5a4}
+    .btn-warn{background:#f59e0b;color:#fff;border-color:#f59e0b}
+    .btn-danger{background:#ef4444;color:#fff;border-color:#ef4444}
+    .btn-ghost{background:#f3f4f6;color:#111827;border:1px solid var(--border)}
+    .table-wrap{overflow-x:auto}
+    thead th{position:sticky;top:0;z-index:1;background:#ecfeff;color:#0e7490;border-bottom:1px solid rgba(14,116,144,.15);font-weight:800}
     tbody tr:hover{background:#fafafa}
     .filters-sticky{position:sticky;top:0;z-index:10;background:linear-gradient(180deg,#f8fafc 0%,#f1f5f9 100%);border-bottom:1px solid rgba(14,116,144,.08);backdrop-filter:blur(2px)}
+    .toast{position:fixed;right:1rem;bottom:1rem;z-index:60}
+    .toast>div{border-radius:.85rem;padding:.75rem 1rem;color:#fff;box-shadow:0 10px 25px rgba(0,0,0,.14)}
+    /* Mejora de celdas */
+    table th,table td{vertical-align:middle;padding-top:.85rem;padding-bottom:.85rem}
+    .narrow{max-width:0}
   </style>
 </head>
-<body class="bg-gray-100">
+<body class="min-h-screen">
 
-  <!-- Nav -->
-  <nav class="bg-cyan-600 text-white p-4 flex gap-6 justify-center text-sm font-semibold tracking-wide">
-    <a href="/" class="hover:underline flex items-center gap-2"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
-    <a href="/almacen" class="hover:underline flex items-center gap-2"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
-    <a href="/historial" class="hover:underline flex items-center gap-2"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
-    <a href="/centavos" class="hover:underline flex items-center gap-2"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
-    <a href="/proveedores" class="hover:underline flex items-center gap-2"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
-    <span class="opacity-70">/</span>
-    <span class="font-bold">Panel de datos</span>
-  </nav>
-
-  <!-- Encabezado -->
-  <div class="max-w-5xl mx-auto p-6 mt-8 card">
-    <div class="flex items-start justify-between gap-4 flex-wrap">
-      <div>
-        <h1 class="text-2xl font-bold text-cyan-700 mb-1 flex items-center gap-2">
-          <i data-lucide="database" class="w-6 h-6"></i> Administrar ventas
-        </h1>
-        <p class="text-gray-600">Edita fecha/hora/total/redondeo o elimina ventas completas.</p>
+  <!-- Header (estilo glass) -->
+  <header class="glass max-w-screen-2xl mx-auto mt-6 mb-4 px-4 py-4">
+    <div class="flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <div class="w-10 h-10 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
+          <i data-lucide="database" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--brand-900)] leading-tight">Administrar ventas</h1>
+          <p class="text-sm text-slate-600">Edita fecha/hora/total/redondeo o elimina ventas completas.</p>
+        </div>
       </div>
+      <nav class="hidden md:flex items-center gap-3 text-sm">
+        <a href="/" class="btn"><i data-lucide="shopping-cart" class="w-4 h-4"></i> Ventas</a>
+        <a href="/almacen" class="btn"><i data-lucide="box" class="w-4 h-4"></i> Almacén</a>
+        <a href="/historial" class="btn"><i data-lucide="bar-chart" class="w-4 h-4"></i> Historial</a>
+        <a href="/centavos" class="btn"><i data-lucide="coins" class="w-4 h-4"></i> Centavos</a>
+        <a href="/proveedores" class="btn"><i data-lucide="truck" class="w-4 h-4"></i> Proveedores</a>
+      </nav>
     </div>
-  </div>
+  </header>
 
-  <!-- Barra de filtros -->
+  <!-- Filtros (sticky) -->
   <div class="filters-sticky">
-    <div class="max-w-5xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
+    <div class="max-w-screen-2xl mx-auto py-4 px-4 flex flex-col md:flex-row gap-4 items-center justify-between">
       <div class="flex items-stretch w-full md:w-1/2">
         <div class="relative flex-1">
           <i data-lucide="search" class="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-cyan-700 pointer-events-none"></i>
           <input id="q" class="input h-10 pl-9 w-full" placeholder="Buscar por ID o fecha (YYYY-MM-DD)">
         </div>
       </div>
-
       <div class="flex items-center gap-2">
         <i data-lucide="calendar" class="w-4 h-4 text-cyan-700"></i>
         <input id="desde" class="input h-10 w-40" type="date">
@@ -73,7 +79,7 @@
   </div>
 
   <!-- Tabla -->
-  <div class="max-w-5xl mx-auto mt-4 card p-0">
+  <div class="max-w-screen-2xl mx-auto mt-4 card p-0">
     <div class="px-6 py-4 border-b border-gray-100 flex items-center justify-between">
       <h2 class="text-lg font-bold text-cyan-700 flex items-center gap-2">
         <i data-lucide="clipboard-list" class="w-5 h-5"></i> Ventas registradas
@@ -81,25 +87,26 @@
     </div>
 
     <div class="table-wrap">
-      <table class="w-full text-sm table-fixed">
+      <table class="min-w-full table-fixed text-sm">
+        <!-- Reparto de ancho al estilo del módulo anterior -->
         <colgroup>
-          <col class="w-[9rem]">
-          <col class="w-36">          <!-- Fecha: más ancho -->
-          <col class="w-28">          <!-- Hora: más ancho -->
-          <col class="w-28">
-          <col class="w-24">
-          <col class="w-28">
-          <col class="w-[24rem]">
+          <col class="w-[12%]">  <!-- ID -->
+          <col class="w-[16%]">  <!-- Fecha -->
+          <col class="w-[12%]">  <!-- Hora -->
+          <col class="w-[20%]">  <!-- Productos -->
+          <col class="w-[12%]">  <!-- Total -->
+          <col class="w-[12%]">  <!-- Redondeo -->
+          <col class="w-[16%]">  <!-- Acciones -->
         </colgroup>
         <thead>
           <tr>
-            <th class="px-4 py-3 text-left whitespace-nowrap">ID</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Fecha</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Hora</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Productos</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Total</th>
-            <th class="px-4 py-3 text-left whitespace-nowrap">Redondeo</th>
-            <th class="px-4 py-3 text-left">Acciones</th>
+            <th class="px-4 text-left whitespace-nowrap">ID</th>
+            <th class="px-4 text-left whitespace-nowrap">Fecha</th>
+            <th class="px-4 text-left whitespace-nowrap">Hora</th>
+            <th class="px-4 text-left">Productos</th>
+            <th class="px-4 text-left whitespace-nowrap">Total</th>
+            <th class="px-4 text-left whitespace-nowrap">Redondeo</th>
+            <th class="px-4 text-left">Acciones</th>
           </tr>
         </thead>
         <tbody id="tbody" class="divide-y divide-gray-100"></tbody>
@@ -108,7 +115,7 @@
   </div>
 
   <!-- Modal -->
-  <div id="modal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center">
+  <div id="modal" class="fixed inset-0 z-50 bg-black/50 hidden items-center justify-center" role="dialog" aria-modal="true" aria-labelledby="modalTitulo">
     <div class="bg-white p-6 rounded-2xl shadow-xl w-full max-w-md text-center">
       <i data-lucide="alert-triangle" class="w-10 h-10 text-amber-500 mx-auto mb-2"></i>
       <h2 id="modalTitulo" class="text-xl font-bold text-gray-800 mb-2">¿Confirmar acción?</h2>
@@ -120,49 +127,77 @@
     </div>
   </div>
 
+  <!-- Toast -->
+  <div id="toast" class="toast hidden" aria-live="polite"></div>
+
   <script>
     let accionModal = null;
 
+    // ==== Utilidades ====
+    const $ = (s,p=document)=>p.querySelector(s);
+    const escapeHTML = (str='') => String(str).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+    const n = v => Number.isFinite(+v) ? +v : 0;
+
+    function toast(msg, ok=true){
+      const t = document.getElementById('toast');
+      t.className = 'toast';
+      t.innerHTML = `<div class="${ok?'bg-emerald-600':'bg-red-600'}">${msg}</div>`;
+      t.classList.remove('hidden'); setTimeout(()=>t.classList.add('hidden'), 2000);
+    }
+
     function limpiarFiltros(){
-      document.getElementById('q').value = '';
-      document.getElementById('desde').value = '';
-      document.getElementById('hasta').value = '';
+      $('#q').value = ''; $('#desde').value = ''; $('#hasta').value = '';
       cargarVentas();
     }
 
+    // ==== Carga y render ====
     async function cargarVentas(){
       const params = new URLSearchParams();
-      const q = document.getElementById('q').value.trim();
-      const desde = document.getElementById('desde').value;
-      const hasta = document.getElementById('hasta').value;
+      const q = $('#q').value.trim();
+      const desde = $('#desde').value;
+      const hasta = $('#hasta').value;
       if (q) params.set('q', q);
       if (desde) params.set('desde', desde);
       if (hasta) params.set('hasta', hasta);
 
-      const res = await fetch('/api/ventas?' + params.toString());
-      const data = await res.json();
+      let data = [];
+      try{
+        const res = await fetch('/api/ventas?' + params.toString(), {cache:'no-store'});
+        data = await res.json();
+      }catch(e){
+        toast('❌ No se pudieron cargar las ventas', false);
+        return;
+      }
+
       const tbody = document.getElementById('tbody');
       tbody.innerHTML = '';
 
       data.forEach(v => {
+        const id = String(v.id);
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="px-4 py-3 font-mono text-xs">${v.id}</td>
-          <td class="px-4 py-3"><input class="input h-10 w-36" type="date" value="${v.fecha || ''}" id="f_${v.id}"></td>
-          <td class="px-4 py-3"><input class="input h-10 w-28" type="time" value="${v.hora || ''}" id="h_${v.id}"></td>
-          <td class="px-4 py-3">${v.productos}</td>
-          <td class="px-4 py-3">
+          <td class="px-4 font-mono text-xs">${escapeHTML(id)}</td>
+          <td class="px-4">
+            <input class="input h-10 w-36" type="date" value="${escapeHTML(v.fecha||'')}" id="f_${id}">
+          </td>
+          <td class="px-4">
+            <input class="input h-10 w-28" type="time" value="${escapeHTML(v.hora||'')}" id="h_${id}">
+          </td>
+          <td class="px-4">${escapeHTML(v.productos||'')}</td>
+          <td class="px-4">
             <div class="relative">
-              <input class="input h-10 w-24 pr-8 text-right" type="number" step="0.01" value="${(v.total||0).toFixed(2)}" id="t_${v.id}">
+              <input class="input h-10 w-24 pr-8 text-right" type="number" step="0.01" value="${(n(v.total)).toFixed(2)}" id="t_${id}">
               <span class="absolute right-5 top-1/2 -translate-y-1/2 text-gray-400 text-xs">$</span>
             </div>
           </td>
-          <td class="px-4 py-3"><input class="input h-10 w-28 text-right" type="number" step="0.01" value="${(v.redondeo||0).toFixed(2)}" id="r_${v.id}"></td>
-          <td class="px-4 py-3">
+          <td class="px-4">
+            <input class="input h-10 w-28 text-right" type="number" step="0.01" value="${(n(v.redondeo)).toFixed(2)}" id="r_${id}">
+          </td>
+          <td class="px-4">
             <div class="flex items-center gap-2 whitespace-nowrap">
-              <button type="button" class="btn btn-warn h-10" onclick="guardar('${v.id}')"><i data-lucide="save"></i> Guardar</button>
-              <button type="button" class="btn btn-danger h-10" onclick="abrirModalEliminar('${v.id}')"><i data-lucide="trash-2"></i> Eliminar</button>
-              <a class="btn btn-prim h-10" href="/ticket/${v.id}" target="_blank"><i data-lucide="receipt"></i> Ticket</a>
+              <button type="button" class="btn btn-warn h-10" data-act="guardar" data-id="${escapeHTML(id)}"><i data-lucide="save"></i> Guardar</button>
+              <button type="button" class="btn btn-danger h-10" data-act="eliminar" data-id="${escapeHTML(id)}"><i data-lucide="trash-2"></i> Eliminar</button>
+              <a class="btn btn-prim h-10" href="/ticket/${encodeURIComponent(id)}" target="_blank"><i data-lucide="receipt"></i> Ticket</a>
             </div>
           </td>
         `;
@@ -172,79 +207,77 @@
       if (window.lucide) lucide.createIcons();
     }
 
+    // ==== Guardar / Eliminar ====
     async function guardar(id){
       const payload = {
         id,
-        fecha: document.getElementById(`f_${id}`).value || undefined,
-        hora:  document.getElementById(`h_${id}`).value || undefined,
-        total: parseFloat(document.getElementById(`t_${id}`).value),
-        redondeo: parseFloat(document.getElementById(`r_${id}`).value),
+        fecha: $('#f_'+id).value || undefined,
+        hora:  $('#h_'+id).value || undefined,
+        total: parseFloat($('#t_'+id).value),
+        redondeo: parseFloat($('#r_'+id).value),
       };
-      const res = await fetch('/ventas/update', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify(payload)
-      });
-      const data = await res.json();
-      if (data.ok){
-        alert('✅ Cambios guardados');
-        cargarVentas();
-      } else {
-        alert('❌ ' + (data.msg || 'Error al guardar'));
+      try{
+        const res = await fetch('/ventas/update', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify(payload)
+        });
+        const data = await res.json();
+        if (data.ok){ toast('✅ Cambios guardados', true); cargarVentas(); }
+        else { toast('❌ ' + (data.msg || 'Error al guardar'), false); }
+      }catch(e){
+        toast('❌ Error de red al guardar', false);
       }
     }
 
     function abrirModalEliminar(id){
       document.getElementById("modalTitulo").textContent = "⚠️ Confirmar eliminación";
-      document.getElementById("modalMensaje").innerHTML = `¿Eliminar la venta <strong>${id}</strong>? Esta acción no se puede deshacer.`;
+      document.getElementById("modalMensaje").innerHTML = `¿Eliminar la venta <strong>${escapeHTML(id)}</strong>? Esta acción no se puede deshacer.`;
       const modal = document.getElementById("modal");
       modal.classList.remove("hidden"); modal.classList.add("flex");
       accionModal = () => eliminarVenta(id);
     }
 
-    document.getElementById("btnCancelar").addEventListener("click", () => {
-      const modal = document.getElementById("modal");
-      modal.classList.add("hidden"); modal.classList.remove("flex");
-      accionModal = null;
-    });
-
-    document.getElementById("btnConfirmar").addEventListener("click", () => {
-      if (accionModal) accionModal();
-      const modal = document.getElementById("modal");
-      modal.classList.add("hidden"); modal.classList.remove("flex");
-      accionModal = null;
-    });
-
     async function eliminarVenta(id){
-      const res = await fetch('/ventas/delete', {
-        method: 'POST',
-        headers: {'Content-Type':'application/json'},
-        body: JSON.stringify({id})
-      });
-      let data = {};
-      try { data = await res.json(); } catch (_) {}
-      if (data && data.ok){
-        alert('✅ Venta eliminada');
-        cargarVentas();
-      } else {
-        alert((data && data.msg) || '❌ No se pudo eliminar');
+      try{
+        const res = await fetch('/ventas/delete', {
+          method:'POST', headers:{'Content-Type':'application/json'},
+          body: JSON.stringify({id})
+        });
+        const data = await res.json().catch(()=> ({}));
+        if (data && data.ok){ toast('✅ Venta eliminada', true); cargarVentas(); }
+        else { toast((data && data.msg) || '❌ No se pudo eliminar', false); }
+      }catch(e){
+        toast('❌ Error de red al eliminar', false);
       }
     }
 
-    // Calidad de vida: Enter en búsqueda aplica, cambiar fechas aplica
-    document.addEventListener('DOMContentLoaded', () => {
-      const q = document.getElementById('q');
-      q.addEventListener('keydown', (e) => {
-        if (e.key === 'Enter') { e.preventDefault(); cargarVentas(); }
-      });
-      ['desde','hasta'].forEach(id =>
-        document.getElementById(id).addEventListener('change', cargarVentas)
-      );
-      if (window.lucide) lucide.createIcons();
+    // ==== Listeners globales (misma lógica de tabla que antes) ====
+    document.addEventListener('click', (e)=>{
+      const btn = e.target.closest('button[data-act]');
+      if (!btn) return;
+      const id = btn.getAttribute('data-id');
+      if (btn.dataset.act === 'guardar') guardar(id);
+      if (btn.dataset.act === 'eliminar') abrirModalEliminar(id);
     });
 
-    // Primera carga
-    cargarVentas();
+    document.getElementById("btnCancelar").addEventListener("click", () => {
+      const m = document.getElementById("modal");
+      m.classList.add("hidden"); m.classList.remove("flex"); accionModal = null;
+    });
+    document.getElementById("btnConfirmar").addEventListener("click", () => {
+      if (accionModal) accionModal();
+      const m = document.getElementById("modal");
+      m.classList.add("hidden"); m.classList.remove("flex"); accionModal = null;
+    });
+
+    // Calidad de vida
+    document.addEventListener('DOMContentLoaded', () => {
+      const q = document.getElementById('q');
+      q.addEventListener('keydown', (e)=>{ if (e.key === 'Enter'){ e.preventDefault(); cargarVentas(); } });
+      ['desde','hasta'].forEach(id => document.getElementById(id).addEventListener('change', cargarVentas));
+      if (window.lucide) lucide.createIcons();
+      cargarVentas();
+    });
   </script>
 </body>
 </html>
