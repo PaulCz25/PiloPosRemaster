@@ -25,7 +25,6 @@
     .btn { display:inline-flex; align-items:center; gap:.5rem; border-radius:.70rem; font-weight:700; padding:.6rem .9rem; border:1px solid transparent; background:#f3f4f6; color:var(--ink); transition:.15s; white-space:nowrap; }
     .btn:hover { background:#e5e7eb; }
     .btn:focus-visible { outline:none; box-shadow: 0 0 0 2px rgba(14,116,144,.28); }
-
     .btn-prim{ background: var(--brand-600); color:#fff; border-color: var(--brand-600); }
     .btn-prim:hover { background:#0c819e; border-color:#0c819e; }
     .btn-warn{ background: var(--warn-500); color:#fff; border-color: var(--warn-500); }
@@ -46,7 +45,7 @@
     .input, .select { border: 1px solid #cbd5e1; border-radius: .70rem; padding: .6rem .85rem; outline: none; background:#fff; color:var(--ink); transition: border-color .15s ease, box-shadow .15s ease; }
     .input:focus, .select:focus { border-color: var(--brand-600); box-shadow: 0 0 0 2px rgba(14,116,144,.18); }
 
-    .table-wrap { overflow-x:auto; }
+    .table-wrap { overflow-x:auto; -webkit-overflow-scrolling: touch; }
     thead th { position: sticky; top: 0; z-index: 1; background: #ecfeff; color:#0e7490; border-bottom: 1px solid rgba(14,116,144,.15); font-weight:800; font-size:.9rem; }
     tbody tr:hover { background: #fafafa; }
     .group-header { background:#f8fafc; color:#0e7490; font-weight:800; }
@@ -57,17 +56,35 @@
     .toast > div { border-radius: .85rem; padding:.75rem 1rem; color:#fff; box-shadow: 0 10px 25px rgba(0,0,0,.14); }
 
     table th, table td { vertical-align: middle; padding-top: 0.9rem; padding-bottom: 0.9rem; }
-    .cell-input { display:flex; align-items:center; gap:.5rem; }
-    .input--precio   { min-width: 6.5rem; text-align:center; }
-    .input--cantidad { min-width: 5rem;  text-align:center; }
-    .input--seccion  { min-width: 9rem; }
+    .cell-input { display:flex; align-items:center; gap:.5rem; min-width:0; }
+    .input--precio   { min-width: 6rem;  text-align:center; }
+    .input--cantidad { min-width: 4.5rem; text-align:center; }
+    .input--seccion  { min-width: 8rem;  }
+
+    @media (max-width: 640px){
+      .input--precio{   min-width:4.75rem; }
+      .input--cantidad{ min-width:3.75rem; }
+      .input--seccion{  min-width:6.5rem; }
+    }
+    /* Columna sticky derecha (Estado) con borde sutil — AJUSTE DE COLOR */
+    th.sticky-right{
+      box-shadow: -1px 0 0 0 rgba(14,116,144,.15) inset;
+      background:#ecfeff; /* mismo azul que thead */
+    }
+    td.sticky-right{
+      box-shadow: -1px 0 0 0 rgba(14,116,144,.15) inset;
+      background:inherit; /* respeta fondo de la fila */
+    }
+    tbody tr:hover td.sticky-right{
+      background:#fafafa; /* coincide con hover de la fila */
+    }
 
     @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
   </style>
 </head>
 <body class="bg-gray-50 min-h-screen">
 
-  <!-- Header más ancho -->
+  <!-- Header -->
   <header class="glass max-w-screen-2xl mx-auto mt-4 mb-6 px-4 py-3 md:px-6 md:py-4">
     <div class="flex items-center justify-between">
       <div class="flex items-center gap-3">
@@ -115,8 +132,8 @@
       </div>
 
       <div class="mt-4 flex items-center gap-2">
-        <button id="btnGuardar" class="btn btn-prim"><i data-lucide="save"></i> Guardar producto</button>
-        <button id="btnLimpiar" class="btn btn-ghost" title="Limpiar campos"><i data-lucide="eraser"></i> Limpiar</button>
+        <button id="btnGuardar" class="btn btn-prim" aria-label="Guardar producto"><i data-lucide="save"></i> <span class="hidden sm:inline">Guardar producto</span></button>
+        <button id="btnLimpiar" class="btn btn-ghost" title="Limpiar campos" aria-label="Limpiar campos"><i data-lucide="eraser"></i> <span class="hidden sm:inline">Limpiar</span></button>
       </div>
     </div>
 
@@ -141,7 +158,7 @@
             <option value="Stock suficiente">Stock suficiente</option>
           </select>
           <button id="btnAgrupar" class="btn btn-ghost" title="Agrupar por sección">
-            <i data-lucide="layout-grid"></i> Agrupar por sección
+            <i data-lucide="layout-grid"></i> <span class="hidden sm:inline">Agrupar por sección</span>
           </button>
         </div>
       </div>
@@ -161,8 +178,8 @@
         </div>
       </div>
 
-      <div class="table-wrap overflow-x-auto lg:overflow-x-visible">
-        <table class="min-w-full table-fixed text-sm">
+      <div class="table-wrap overflow-x-auto">
+        <table class="min-w-full text-sm table-auto sm:table-fixed">
           <colgroup>
             <col class="w-[14%]">
             <col class="w-[24%]">
@@ -175,13 +192,14 @@
 
           <thead>
             <tr>
-              <th class="px-4 text-left whitespace-normal break-words">Código</th>
-              <th class="px-4 text-left whitespace-normal break-words">Nombre</th>
-              <th class="px-4 text-center whitespace-nowrap">Precio</th>
-              <th class="px-4 text-center whitespace-nowrap">Cantidad</th>
-              <th class="px-4 text-left whitespace-normal break-words">Sección</th>
-              <th class="px-4 text-left">Acciones</th>
-              <th class="px-4 text-center">Estado</th>
+              <th scope="col" class="px-4 text-left whitespace-normal break-words">Código</th>
+              <th scope="col" class="px-4 text-left whitespace-normal break-words">Nombre</th>
+              <th scope="col" class="px-4 text-center whitespace-nowrap">Precio</th>
+              <th scope="col" class="px-4 text-center whitespace-nowrap">Cantidad</th>
+              <th scope="col" class="px-4 text-left whitespace-normal break-words">Sección</th>
+              <th scope="col" class="px-4 text-left">Acciones</th>
+              <!-- Estado: SIEMPRE visible y sticky a la derecha -->
+              <th scope="col" class="px-4 text-center whitespace-nowrap sticky right-0 z-10 sticky-right">Estado</th>
             </tr>
           </thead>
           <tbody id="tablaProductos" class="divide-y divide-gray-100"></tbody>
@@ -197,14 +215,14 @@
       <h2 id="modalTitulo" class="text-xl font-bold text-gray-800 mb-2">¿Confirmar acción?</h2>
       <p id="modalMensaje" class="text-gray-600 mb-6">¿Estás seguro?</p>
       <div class="flex justify-center gap-3">
-        <button id="btnCancelar" class="btn btn-ghost">Cancelar</button>
-        <button id="btnConfirmar" class="btn btn-prim">Confirmar</button>
+        <button id="btnCancelar" class="btn btn-ghost" aria-label="Cancelar"><i data-lucide="x"></i> <span class="hidden sm:inline">Cancelar</span></button>
+        <button id="btnConfirmar" class="btn btn-prim" aria-label="Confirmar"><i data-lucide="check"></i> <span class="hidden sm:inline">Confirmar</span></button>
       </div>
     </div>
   </div>
 
   <!-- Toast -->
-  <div id="toast" class="toast hidden"></div>
+  <div id="toast" class="toast hidden" role="status" aria-live="polite"></div>
 
   <script>
     // ===== Estado y utilidades =====
@@ -308,32 +326,34 @@
       const tr = document.createElement('tr');
       tr.innerHTML = `
         <td class="px-4 font-medium text-cyan-700 whitespace-normal break-all">${escapeHTML(codigo)}</td>
-        <td class="px-4 text-gray-700 whitespace-normal break-words">${nombreSeguro}</td>
+        <td class="px-4 text-gray-700 whitespace-normal break-words">
+          ${nombreSeguro}
+        </td>
         <td class="px-4 text-center">
           <div class="cell-input justify-center">
-            <input type="number" step="0.01" value="${n(prod.precio,0)}" class="input input--precio" id="precio_${codigoId}" inputmode="decimal">
-            <span class="text-gray-400 text-xs">$</span>
+            <input type="number" step="0.01" value="${n(prod.precio,0)}" class="input input--precio w-full max-w-[6.5rem] sm:max-w-[6.5rem]" id="precio_${codigoId}" inputmode="decimal" aria-label="Precio">
+            <span class="text-gray-400 text-xs" aria-hidden="true">$</span>
           </div>
         </td>
         <td class="px-4 text-center">
-          <input type="number" value="${cantidad}" class="input input--cantidad" id="cantidad_${codigoId}" inputmode="numeric">
+          <input type="number" value="${cantidad}" class="input input--cantidad w-full max-w-[5rem] sm:max-w-[5rem]" id="cantidad_${codigoId}" inputmode="numeric" aria-label="Cantidad">
         </td>
         <td class="px-4">
-          <input type="text" value="${seccionSeguro}" class="input input--seccion" id="seccion_${codigoId}" placeholder="Sección">
+          <input type="text" value="${seccionSeguro}" class="input input--seccion w-full max-w-[9rem] sm:max-w-[9rem]" id="seccion_${codigoId}" placeholder="Sección" aria-label="Sección">
         </td>
         <td class="px-4">
           <div class="flex items-center gap-2">
-            <button class="btn btn-warn" data-act="guardar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
-              <i data-lucide="save"></i> Guardar
+            <button class="btn btn-warn" aria-label="Guardar cambios" data-act="guardar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
+              <i data-lucide="save"></i><span class="hidden sm:inline"> Guardar</span>
             </button>
-            <button class="btn btn-danger" data-act="eliminar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
-              <i data-lucide="trash-2"></i> Eliminar
+            <button class="btn btn-danger" aria-label="Eliminar producto" data-act="eliminar" data-cod="${codigoId}" data-nom="${nombreSeguro.replace(/"/g,'&quot;')}">
+              <i data-lucide="trash-2"></i><span class="hidden sm:inline"> Eliminar</span>
             </button>
           </div>
         </td>
-        <td class="px-4 text-center"><span class="${cls}">${txt}</span></td>`;
-      // Guardamos el código real en dataset del <tr> por si hace falta
-      tr.dataset.codigoReal = codigo;
+        <!-- Columna de Estado: SIEMPRE visible y sticky a la derecha -->
+        <td class="px-4 text-center sticky right-0 z-10 sticky-right"><span class="${cls}">${txt}</span></td>`;
+      tr.dataset.codigoReal = codigo; // código real por si el id fue normalizado
       return tr;
     }
 
@@ -407,7 +427,7 @@
       const seccion = (document.getElementById(`seccion_${codigoId}`).value || '').trim();
       if (!isFinite(precio) || !isFinite(cantidad)) { toast('⚠️ Ingresa datos válidos.','err'); return; }
 
-      // Recuperar el código REAL desde la fila (por si hubo normalización en el id)
+      // Recuperar el código REAL desde la fila
       const tr = document.getElementById(`cantidad_${codigoId}`)?.closest('tr');
       const codigoReal = tr?.dataset.codigoReal ?? codigoId;
 
@@ -433,7 +453,7 @@
       .catch(()=> toast('❌ Error de red al eliminar.','err'));
     }
 
-    // Delegación para botones (usamos data-nom otra vez)
+    // Delegación para botones
     document.addEventListener('click', (e)=>{
       const btn = e.target.closest('button[data-act]');
       if (!btn) return;
@@ -453,7 +473,7 @@
     document.getElementById('btnAgrupar').addEventListener('click', ()=>{
       agrupar = !agrupar;
       document.getElementById('btnAgrupar').innerHTML =
-        agrupar ? '<i data-lucide="list-tree"></i> Vista plana' : '<i data-lucide="layout-grid"></i> Agrupar por sección';
+        agrupar ? '<i data-lucide="list-tree"></i> <span class="hidden sm:inline">Vista plana</span>' : '<i data-lucide="layout-grid"></i> <span class="hidden sm:inline">Agrupar por sección</span>';
       renderizarProductos(); if (window.lucide) lucide.createIcons();
     });
 
@@ -463,6 +483,16 @@
       ['codigoNuevo','nombreNuevo','precioNuevo','cantidadNuevo','seccionNueva'].forEach(id=>{
         const el=document.getElementById(id); if(el) el.value='';
       });
+    });
+
+    // Escape para cerrar modal
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Escape') {
+        const m = document.getElementById('modal');
+        if (!m.classList.contains('hidden')) {
+          m.classList.add('hidden'); m.classList.remove('flex'); accionModal=null;
+        }
+      }
     });
 
     cargarProductos(); if (window.lucide) lucide.createIcons();
