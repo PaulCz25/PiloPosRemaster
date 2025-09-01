@@ -60,7 +60,6 @@ def _require_auth_everywhere():
 
     # Usa flask-login para verificar autenticación
     if not current_user.is_authenticated:
-        # opcional: remember permanente
         session.permanent = True
         return redirect(url_for("login", next=request.full_path))
 
@@ -108,14 +107,12 @@ def on_join(data):
         if _last_state:
             emit("state", _last_state)
     elif role == "admin":
-        # exige autenticación para unirse como admin
         if not current_user.is_authenticated:
             return
         join_room("admin")
 
 @socketio.on("update-display")
 def on_update_display(payload):
-    # solo usuarios autenticados pueden emitir actualizaciones
     if not current_user.is_authenticated:
         return
     global _last_state
@@ -125,7 +122,7 @@ def on_update_display(payload):
 # --------------------- Inicializar DB de control ---------------------
 try:
     with app.app_context():
-        init_db()   # crea control.tenants si no existe (idempotente) – en nuestro db.py es no-op
+        init_db()
 except Exception as e:
     print('init_db warning:', e)
 
@@ -138,10 +135,6 @@ if not DATABASE_URL:
 TENANT_SCHEMA = os.getenv("TENANT_SCHEMA", "tnt_default")  # p.ej. tnt_cliente1
 
 def ensure_tenant_schema():
-    """
-    Crea el schema de ESTE sitio si no existe y tablas mínimas para que no truene.
-    NOTA: 'extra' se maneja como TEXT (compat json.dumps/json.loads en este código).
-    """
     ddl = f'''
     create schema if not exists "{TENANT_SCHEMA}";
     set search_path = "{TENANT_SCHEMA}", public;
@@ -165,10 +158,10 @@ def ensure_tenant_schema():
 
     create table if not exists ventas(
       id      text primary key,
-      fecha   text not null,             -- guardas 'YYYY-MM-DD HH:MM' como texto
+      fecha   text not null,
       cliente text,
       total   numeric(12,2) not null default 0,
-      extra   text                       -- JSON serializado como texto
+      extra   text
     );
 
     create table if not exists venta_items(
@@ -180,7 +173,6 @@ def ensure_tenant_schema():
     );
     create index if not exists idx_venta_items_venta on venta_items(venta_id);
 
-    -- ===== Usuarios mínimos para autenticación (añadido) =====
     create table if not exists usuarios(
       id            bigserial primary key,
       username      text unique not null,
@@ -194,14 +186,9 @@ def ensure_tenant_schema():
             cur.execute(ddl)
             conn.commit()
 
-# Ejecutar una vez al arrancar el proceso (Flask 3: llamada directa)
 ensure_tenant_schema()
 
 def bootstrap_admin_user_if_needed():
-    """
-    Si no hay usuarios, crea uno inicial usando variables de entorno:
-    ADMIN_USER y ADMIN_PASSWORD (en texto plano) o ADMIN_PASSWORD_HASH.
-    """
     admin_user = os.getenv("ADMIN_USER", "admin").strip()
     admin_pwd = os.getenv("ADMIN_PASSWORD")
     admin_hash = os.getenv("ADMIN_PASSWORD_HASH")
@@ -223,9 +210,21 @@ bootstrap_admin_user_if_needed()
 
 @app.before_request
 def set_fixed_tenant():
-    # Todas las requests usan el schema de este sitio
     g.tenant_schema = TENANT_SCHEMA
     g.r2_prefix = f"tenants/{TENANT_SCHEMA}/"
+
+# --------- helper: exigir login salvo display=1 ----------
+from functools import wraps
+def require_auth_or_display(fn):
+    @wraps(fn)
+    def _w(*a, **kw):
+        if request.args.get('display') == '1':
+            return fn(*a, **kw)
+        if not current_user.is_authenticated:
+            return redirect(url_for('login', next=request.full_path))
+        return fn(*a, **kw)
+    return _w
+# --------------------------------------------------------
 
 # ===================== EXPORTADORES (opcionales) =====================
 def export_productos_json():
@@ -300,11 +299,9 @@ def index():
     return redirect(url_for('venta'))
 
 @app.route('/venta')
+@require_auth_or_display
 def venta():
-    # Requiere login excepto en modo display (para el visor del cliente)
     display_mode = (request.args.get('display') == '1')
-    if not display_mode and not current_user.is_authenticated:
-        return redirect(url_for('login'))
 
     if 'carrito' not in session:
         session['carrito'] = []
@@ -323,10 +320,8 @@ def venta():
     )
 
 @app.route('/agregar-producto', methods=['POST'])
+@login_required
 def agregar_producto():
-    if not current_user.is_authenticated:
-        return redirect(url_for('login'))
-
     codigo = (request.form.get('codigo') or '').strip()
 
     with get_db() as conn:
@@ -374,7 +369,6 @@ def redondear():
     redondeo = round(total + 0.5) - total if aceptado == 'si' else 0
     total_final = round(total + 0.5) if aceptado == 'si' else total
 
-    # Agrupa por nombre y guarda también el precio capturado (para manuales)
     resumen = {}
     for item in carrito:
         nombre = item.get('nombre')
@@ -384,7 +378,6 @@ def redondear():
         else:
             resumen[nombre] = {'nombre': nombre, 'cantidad': 1, 'precio': precio_item}
 
-    # Fecha/hora con TZ local (Tijuana)
     ahora = datetime.now(LOCAL_TZ)
     fecha_str = ahora.strftime('%Y-%m-%d')
     hora_str = ahora.strftime('%H:%M')
@@ -395,7 +388,6 @@ def redondear():
             conn.execute('BEGIN')
 
             extra = {'redondeo': float(redondeo), 'hora': hora_str}
-            # NOTA: 'extra' es TEXT; guardamos el JSON serializado sin 'json(?)'
             conn.execute(
                 'INSERT INTO ventas (id, fecha, cliente, total, extra) VALUES (?, ?, ?, ?, ?)',
                 (venta_id, f'{fecha_str} {hora_str}', None, float(total_final), json.dumps(extra, ensure_ascii=False))
@@ -404,7 +396,6 @@ def redondear():
             for nombre, info in resumen.items():
                 cantidad = int(info['cantidad'])
 
-                # ¿Existe en productos? → usar su id/precio.
                 with_db = False
                 prow = conn.execute(
                     'SELECT id, precio FROM productos WHERE nombre=? LIMIT 1',
@@ -416,9 +407,8 @@ def redondear():
                     pu = float(prow['precio'] or 0.0)
                     with_db = True
                 else:
-                    # Crear producto "MANUAL" para respetar FK
                     pu = float(info.get('precio', 0.0))
-                    pid = ahora.strftime('M%Y%m%d%H%M%S%f')  # id único
+                    pid = ahora.strftime('M%Y%m%d%H%M%S%f')
                     conn.execute(
                         'INSERT INTO productos (id, nombre, precio, stock, categoria) VALUES (?,?,?,?,?)',
                         (pid, nombre, pu, 0, 'MANUAL')
@@ -429,7 +419,6 @@ def redondear():
                     (venta_id, pid, cantidad, pu)
                 )
 
-                # Si es un producto real del almacén, baja stock (usar GREATEST en Postgres)
                 if with_db:
                     conn.execute(
                         'UPDATE productos SET stock = GREATEST(0, stock - ?) WHERE id = ?',
@@ -445,7 +434,6 @@ def redondear():
         session['mensaje'] = f'❌ Error al completar la venta: {e}'
         return redirect(url_for('venta'))
 
-    # Espejos JSON opcionales
     try:
         export_productos_json()
         export_historial_json()
@@ -659,7 +647,11 @@ def usuarios():
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
+        # si ya estás autenticado, respeta next o ve a ventas
+        if current_user.is_authenticated:
+            return redirect(request.args.get('next') or url_for('venta'))
         return render_template('login.html')
+
     u = (request.form.get('username') or '').strip()
     p = request.form.get('password') or ''
     error = None
@@ -671,8 +663,7 @@ def login():
             else:
                 conn.execute("UPDATE usuarios SET ultimo_acceso=now() WHERE id=?", (row["id"],))
                 login_user(User(row["id"], u), remember=False)
-                # respeta 'next' si venía en la URL; por defecto manda a Ventas
-                next_url = request.args.get('next') or url_for('venta')
+                next_url = request.values.get('next') or url_for('venta')
                 return redirect(next_url)
     except Exception as e:
         error = f"Error de autenticación: {e}"
@@ -786,12 +777,6 @@ def panel():
 @app.get('/api/ventas')
 @login_required
 def api_ventas():
-    """
-    Lista ventas con filtros opcionales:
-    - q: busca por ID o por fecha (texto)
-    - desde: 'YYYY-MM-DD'
-    - hasta: 'YYYY-MM-DD'
-    """
     q = (request.args.get('q') or '').strip()
     desde = (request.args.get('desde') or '').strip()
     hasta = (request.args.get('hasta') or '').strip()
@@ -860,18 +845,13 @@ def api_ventas():
 @app.post('/ventas/update')
 @login_required
 def ventas_update():
-    """
-    Actualiza una venta:
-    JSON: { id, fecha?, hora?, total, redondeo }
-    - No modifica los items, solo la cabecera (fecha/hora/total/extra.redondeo).
-    """
     data = request.get_json(silent=True) or {}
     vid = (data.get('id') or '').strip()
     if not vid:
         return jsonify({"ok": False, "msg": "Falta id"}), 400
 
-    nueva_fecha = (data.get('fecha') or '').strip()     # 'YYYY-MM-DD'
-    nueva_hora  = (data.get('hora') or '').strip()      # 'HH:MM'
+    nueva_fecha = (data.get('fecha') or '').strip()
+    nueva_hora  = (data.get('hora') or '').strip()
     try:
         nuevo_total = float(data.get('total'))
     except Exception:
@@ -887,7 +867,6 @@ def ventas_update():
         if not v:
             return jsonify({"ok": False, "msg": "Venta no encontrada"}), 404
 
-        # Construir fecha completa
         fecha_actual = v['fecha'] or ""
         if " " in fecha_actual:
             f_exist, h_exist = fecha_actual.split(" ", 1)
@@ -900,7 +879,6 @@ def ventas_update():
         if h_final:
             fecha_hora = f"{f_final.strip()} {h_final.strip()}"
 
-        # Actualizar extra.redondeo (y opcionalmente hora)
         extra = {}
         if v['extra']:
             try:
@@ -921,10 +899,6 @@ def ventas_update():
 @app.post('/ventas/delete')
 @login_required
 def ventas_delete():
-    """
-    Elimina la venta completa (cabecera + items).
-    NOTA: No reajustamos inventario (como pediste).
-    """
     data = request.get_json(silent=True) or {}
     vid = (data.get('id') or '').strip()
     if not vid:
@@ -949,7 +923,6 @@ def __probe():
     }
     try:
         with get_db() as conn:
-            # 1) intenta leer el search_path (Postgres)
             try:
                 row = conn.execute("select current_setting('search_path') as sp").fetchone()
                 if row and ('sp' in row or 'search_path' in row):
@@ -957,7 +930,6 @@ def __probe():
             except Exception as e:
                 info['search_path_error'] = str(e)
 
-            # 2) intenta leer algunos productos
             try:
                 rows = conn.execute(
                     'select id, nombre, precio, stock, categoria from productos order by id limit 10'
@@ -972,5 +944,4 @@ def __probe():
 # ===== FIN PROBE =====
 
 if __name__ == '__main__':
-    # En producción (Render) usa gunicorn + gevent-websocket (ver Start Command).
     socketio.run(app, debug=True)

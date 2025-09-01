@@ -29,9 +29,7 @@
   </style>
 </head>
 <body class="bg-gradient-to-b from-cyan-50 to-white min-h-screen flex">
-  <!-- Main -->
   <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto">
-    <!-- Top bar estilo Ventas -->
     <div class="glass px-4 py-3 md:px-6 md:py-4 mb-6 flex items-center justify-between rounded-2xl">
       <div class="flex items-center gap-3">
         <div class="hidden md:flex items-center justify-center w-10 h-10 rounded-xl bg-white/70 text-[var(--brand-600)]">
@@ -49,7 +47,6 @@
       </div>
     </div>
 
-    <!-- Card de login con la misma estética -->
     <div class="card p-6 md:p-8 max-w-md mx-auto pop">
       <div class="flex items-center gap-3 mb-4">
         <div class="w-11 h-11 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
@@ -68,6 +65,7 @@
       {% endif %}
 
       <form method="POST" action="{{ url_for('login', next=request.args.get('next')) }}" class="space-y-4" aria-label="Formulario de acceso">
+        <input type="hidden" name="next" value="{{ request.args.get('next','') }}">
         <div>
           <label class="block text-sm text-gray-700 mb-1" for="username">Usuario</label>
           <input id="username" name="username" type="text" required autocomplete="username"
@@ -106,7 +104,6 @@
       if (window.lucide) lucide.createIcons();
       const u = document.getElementById('username'); if (u) u.focus();
 
-      // Mostrar/ocultar contraseña
       const pwd = document.getElementById('password');
       const btn = document.getElementById('togglePwd');
       if (btn && pwd) {
@@ -119,7 +116,6 @@
         });
       }
 
-      // Indicador de Bloq Mayús
       const caps = document.getElementById('capsHint');
       if (pwd && caps) {
         pwd.addEventListener('keydown', (e) => {
