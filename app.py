@@ -1,14 +1,14 @@
 from flask import Flask, render_template, request, redirect, url_for, session, jsonify, g
 import json
 import os
-from datetime import datetime
+from datetime import datetime, timedelta
 from zoneinfo import ZoneInfo  # ← zona horaria real
 
-# ===== Seguridad y Auth (añadido) =====
+# ===== Seguridad y Auth =====
 from dotenv import load_dotenv; load_dotenv()
 from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
 from werkzeug.security import check_password_hash, generate_password_hash
-# =====================================
+# ============================
 
 # Carpeta escribible en Render (no usar /var/data en Free/Starter)
 DATA_DIR = os.environ.get("DATA_DIR", "/tmp/pilotopos")
@@ -33,9 +33,8 @@ from db import get_db, init_db
 # ================== APP ==================
 app = Flask(__name__)
 
-from datetime import timedelta
-
-# endurece cookies de sesión (útil en Render con HTTPS)
+# Cookies de sesión
+app.secret_key = os.environ["SECRET_KEY"]
 app.config.update(
     SESSION_COOKIE_HTTPONLY=True,
     SESSION_COOKIE_SECURE=bool(int(os.getenv("SESSION_COOKIE_SECURE", "1"))),  # en prod=1
@@ -43,35 +42,7 @@ app.config.update(
     PERMANENT_SESSION_LIFETIME=timedelta(days=30),
 )
 
-# Endpoints que SÍ pueden verse sin login
-_PUBLIC_ENDPOINTS = {
-    "static", "login", "logout", "__probe",  # estáticos y login
-}
-
-@app.before_request
-def _require_auth_everywhere():
-    # Permite /venta?display=1 como kiosco SOLO lectura
-    if request.endpoint == "venta" and request.args.get("display") == "1":
-        return
-
-    ep = (request.endpoint or "").split(".")[-1]
-    if ep in _PUBLIC_ENDPOINTS:
-        return
-
-    # Usa flask-login para verificar autenticación
-    if not current_user.is_authenticated:
-        session.permanent = True
-        return redirect(url_for("login", next=request.full_path))
-
-# Endurece sesión: requiere SECRET_KEY real (ya la verificaste)
-app.secret_key = os.environ["SECRET_KEY"]
-app.config.update(
-    SESSION_COOKIE_HTTPONLY=True,
-    SESSION_COOKIE_SAMESITE="Strict",
-    SESSION_COOKIE_SECURE=bool(int(os.getenv("SESSION_COOKIE_SECURE", "0"))),  # 0 en dev, 1 en prod
-)
-
-# ---- Login manager (añadido) ----
+# ---- Login manager ----
 login_manager = LoginManager(app)
 login_manager.login_view = "login"
 
@@ -90,7 +61,7 @@ def load_user(uid):
     except Exception:
         pass
     return None
-# ---------------------------------
+# -----------------------
 
 # ---- Socket.IO ----
 allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
@@ -122,7 +93,7 @@ def on_update_display(payload):
 # --------------------- Inicializar DB de control ---------------------
 try:
     with app.app_context():
-        init_db()
+        init_db()   # crea control.tenants si no existe (idempotente)
 except Exception as e:
     print('init_db warning:', e)
 
@@ -173,6 +144,7 @@ def ensure_tenant_schema():
     );
     create index if not exists idx_venta_items_venta on venta_items(venta_id);
 
+    -- Usuarios para autenticación
     create table if not exists usuarios(
       id            bigserial primary key,
       username      text unique not null,
@@ -339,7 +311,7 @@ def agregar_producto():
     else:
         return redirect(url_for('almacen', codigo=codigo))
 
-# ====== NUEVO: Agregar productos manuales al carrito ======
+# ====== Agregar productos manuales al carrito ======
 @app.post('/carrito/agregar_manual')
 @login_required
 def carrito_agregar_manual():
@@ -643,13 +615,24 @@ def historial():
 def usuarios():
     return render_template('usuarios.html')
 
-# ====== LOGIN/LOGOUT (modificado) ======
+# ====== LOGIN/LOGOUT ======
+from urllib.parse import urlparse
+
+def _safe_next(target: str) -> str | None:
+    if not target:
+        return None
+    u = urlparse(target)
+    # Solo paths internos y nunca volver a /login
+    if (u.scheme or u.netloc) or target.startswith('//') or target.startswith('/login'):
+        return None
+    return target
+
 @app.route('/login', methods=['GET', 'POST'])
 def login():
     if request.method == 'GET':
-        # si ya estás autenticado, respeta next o ve a ventas
         if current_user.is_authenticated:
-            return redirect(request.args.get('next') or url_for('venta'))
+            nxt = _safe_next(request.args.get('next')) or url_for('venta')
+            return redirect(nxt)
         return render_template('login.html')
 
     u = (request.form.get('username') or '').strip()
@@ -663,8 +646,8 @@ def login():
             else:
                 conn.execute("UPDATE usuarios SET ultimo_acceso=now() WHERE id=?", (row["id"],))
                 login_user(User(row["id"], u), remember=False)
-                next_url = request.values.get('next') or url_for('venta')
-                return redirect(next_url)
+                nxt = _safe_next(request.values.get('next')) or url_for('venta')
+                return redirect(nxt)
     except Exception as e:
         error = f"Error de autenticación: {e}"
     return render_template('login.html', error=error)
@@ -675,7 +658,7 @@ def logout():
     logout_user()
     session.clear()
     return redirect(url_for('login'))
-# ======================================
+# ==========================
 
 @app.route('/proveedores')
 @login_required
@@ -913,7 +896,7 @@ def ventas_delete():
         conn.execute("DELETE FROM ventas WHERE id=?", (vid,))
 
     return jsonify({"ok": True})
-# ===== PROBE DE DIAGNÓSTICO (tolerante a Postgres/SQLite) =====
+# ===== PROBE DE DIAGNÓSTICO =====
 @app.get('/__probe')
 def __probe():
     info = {
