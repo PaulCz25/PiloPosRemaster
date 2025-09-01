@@ -6,3 +6,6 @@ __pycache__/
 *.db-wal
 historial.json
 static/productos.json
+
+.env
+
