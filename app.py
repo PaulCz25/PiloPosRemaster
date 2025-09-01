@@ -32,6 +32,38 @@ from db import get_db, init_db
 
 # ================== APP ==================
 app = Flask(__name__)
+
+from datetime import timedelta
+
+# endurece cookies de sesión (útil en Render con HTTPS)
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SECURE=bool(int(os.getenv("SESSION_COOKIE_SECURE", "1"))),  # en prod=1
+    SESSION_COOKIE_SAMESITE="Lax",
+    PERMANENT_SESSION_LIFETIME=timedelta(days=30),
+)
+
+# Endpoints que SÍ pueden verse sin login
+_PUBLIC_ENDPOINTS = {
+    "static", "login", "logout", "__probe",  # estáticos y login
+}
+
+@app.before_request
+def _require_auth_everywhere():
+    # Permite /venta?display=1 como kiosco SOLO lectura
+    if request.endpoint == "venta" and request.args.get("display") == "1":
+        return
+
+    ep = (request.endpoint or "").split(".")[-1]
+    if ep in _PUBLIC_ENDPOINTS:
+        return
+
+    # Si NO tienes flask-login, usa una bandera de sesión propia:
+    if not session.get("uid"):  # <-- asegúrate que en tu POST /login hagas: session["uid"] = user_id
+        # opcional: remember permanente
+        session.permanent = True
+        return redirect(url_for("login", next=request.full_path))
+
 # Endurece sesión: requiere SECRET_KEY real (ya la verificaste)
 app.secret_key = os.environ["SECRET_KEY"]
 app.config.update(
