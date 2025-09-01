@@ -58,8 +58,8 @@ def _require_auth_everywhere():
     if ep in _PUBLIC_ENDPOINTS:
         return
 
-    # Si NO tienes flask-login, usa una bandera de sesión propia:
-    if not session.get("uid"):  # <-- asegúrate que en tu POST /login hagas: session["uid"] = user_id
+    # Usa flask-login para verificar autenticación
+    if not current_user.is_authenticated:
         # opcional: remember permanente
         session.permanent = True
         return redirect(url_for("login", next=request.full_path))
@@ -108,10 +108,16 @@ def on_join(data):
         if _last_state:
             emit("state", _last_state)
     elif role == "admin":
+        # exige autenticación para unirse como admin
+        if not current_user.is_authenticated:
+            return
         join_room("admin")
 
 @socketio.on("update-display")
 def on_update_display(payload):
+    # solo usuarios autenticados pueden emitir actualizaciones
+    if not current_user.is_authenticated:
+        return
     global _last_state
     _last_state = payload
     emit("state", payload, to="display")
@@ -665,7 +671,9 @@ def login():
             else:
                 conn.execute("UPDATE usuarios SET ultimo_acceso=now() WHERE id=?", (row["id"],))
                 login_user(User(row["id"], u), remember=False)
-                return redirect(url_for('panel'))
+                # respeta 'next' si venía en la URL; por defecto manda a Ventas
+                next_url = request.args.get('next') or url_for('venta')
+                return redirect(next_url)
     except Exception as e:
         error = f"Error de autenticación: {e}"
     return render_template('login.html', error=error)
