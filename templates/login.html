@@ -1,55 +1,136 @@
 <!DOCTYPE html>
-<html lang="es">
+<html lang="es" class="h-full">
 <head>
-  <meta charset="UTF-8">
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
   <title>PilotoPOS – Login</title>
   <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap" rel="stylesheet" />
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <style>
+    :root{
+      --brand-900:#0e7490; --brand-700:#0ea5b0; --brand-600:#0891b2; --brand-500:#06b6d4;
+      --ink-900:#0f172a; --ink-700:#334155; --ok-600:#059669; --err-600:#dc2626; --soft:#eef7fb;
+    }
+    html, body { height: 100%; }
+    body { font-family:'Inter',system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,'Helvetica Neue','Noto Sans',Arial,'Apple Color Emoji','Segoe UI Emoji'; }
+    .card { border-radius: 1.25rem; background: #fff; box-shadow: 0 10px 15px -3px rgba(0,0,0,.08), 0 4px 6px -4px rgba(0,0,0,.06); border: 1px solid rgba(14,116,144,.08); }
+    .soft-divider { border-top: 1px solid rgba(2,6,23,.06); }
+    .input { border: 1px solid rgb(165 243 252 / .7); border-radius: 0.75rem; padding: 0.8rem 0.9rem; width: 100%; box-shadow: 0 1px 1px rgba(0,0,0,.03); outline: none; background:#fff; }
+    .input:focus { box-shadow: 0 0 0 4px rgba(14,116,144,.14); border-color: var(--brand-600); }
+    .btn { display:inline-flex; align-items:center; justify-content:center; gap:.5rem; border-radius:.85rem; font-weight:700; transition:.15s ease; padding:.8rem 1.1rem; box-shadow: 0 8px 20px -10px rgba(14,116,144,.45); }
+    .btn:active { transform: translateY(1px); }
+    .btn-primary { background: var(--brand-600); color:#fff; }
+    .btn-primary:hover { filter:brightness(1.05); }
+    .btn-ghost   { background:#fff; color:var(--brand-600); border:1px solid rgba(14,116,144,.25); }
+    .glass { background: linear-gradient(180deg, rgba(255,255,255,.75), rgba(255,255,255,.60)); backdrop-filter:saturate(160%) blur(8px); border:1px solid rgba(14,116,144,.12); border-radius:1rem; }
+    @keyframes pop { from{ transform:scale(.98); opacity:.3 } to{ transform:scale(1); opacity:1 } }
+    .pop { animation: pop .18s ease-out; }
+  </style>
 </head>
-<body class="bg-gray-100">
-  <nav class="bg-cyan-600 text-white p-4 flex gap-4 justify-center">
-    <a href="/" class="hover:underline">Ventas</a>
-    <a href="/almacen" class="hover:underline">Almacén</a>
-    <a href="/historial" class="hover:underline">Historial</a>
-    <a href="/usuarios" class="hover:underline">Usuarios</a>
-    <a href="/login" class="hover:underline">Login</a>
-  </nav>
+<body class="bg-gradient-to-b from-cyan-50 to-white min-h-screen flex">
+  <!-- Main -->
+  <main class="flex-1 p-4 md:p-8 max-w-7xl mx-auto">
+    <!-- Top bar estilo Ventas -->
+    <div class="glass px-4 py-3 md:px-6 md:py-4 mb-6 flex items-center justify-between rounded-2xl">
+      <div class="flex items-center gap-3">
+        <div class="hidden md:flex items-center justify-center w-10 h-10 rounded-xl bg-white/70 text-[var(--brand-600)]">
+          <i data-lucide="lock" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h1 class="text-2xl md:text-3xl font-extrabold text-[var(--brand-900)] leading-tight">Acceso al sistema</h1>
+          <p class="text-sm text-slate-500">Autentícate para usar tu punto de venta.</p>
+        </div>
+      </div>
+      <div class="hidden md:flex items-center gap-2">
+        <a href="/" class="btn btn-ghost" title="Ir a Ventas">
+          <i data-lucide="shopping-cart" class="w-5 h-5"></i> <span class="hidden lg:inline">Ventas</span>
+        </a>
+      </div>
+    </div>
 
-  <div class="max-w-sm mx-auto p-6 mt-20 bg-white rounded shadow">
-    <h1 class="text-2xl font-bold text-cyan-600 mb-6 text-center">🔒 Iniciar sesión</h1>
-    <p class="text-center text-gray-600 mb-4">Ingresa tus credenciales para acceder al sistema.</p>
+    <!-- Card de login con la misma estética -->
+    <div class="card p-6 md:p-8 max-w-md mx-auto pop">
+      <div class="flex items-center gap-3 mb-4">
+        <div class="w-11 h-11 rounded-xl bg-cyan-50 text-[var(--brand-600)] flex items-center justify-center">
+          <i data-lucide="shield-check" class="w-5 h-5"></i>
+        </div>
+        <div>
+          <h2 class="text-xl font-extrabold text-slate-900">Iniciar sesión</h2>
+          <p class="text-sm text-slate-500">Ingresa tus credenciales.</p>
+        </div>
+      </div>
 
-    {% if error %}
-      <div class="mb-4 rounded-lg bg-red-50 text-red-700 px-4 py-3 text-sm">
+      {% if error %}
+      <div class="mb-4 rounded-xl bg-red-50 text-red-700 border border-red-100 px-4 py-3 text-sm">
         {{ error }}
       </div>
-    {% endif %}
-
-    <form method="POST" action="{{ url_for('login') }}" class="space-y-4">
-      <div>
-        <label class="block text-sm text-gray-700 mb-1" for="username">Usuario</label>
-        <input id="username" name="username" type="text" required
-               class="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-300">
-      </div>
-
-      <div>
-        <label class="block text-sm text-gray-700 mb-1" for="password">Contraseña</label>
-        <input id="password" name="password" type="password" required
-               class="w-full border rounded-xl px-3 py-2 focus:outline-none focus:ring-2 focus:ring-cyan-300">
-      </div>
-
-      <button type="submit"
-              class="w-full bg-cyan-600 hover:bg-cyan-700 text-white font-semibold py-2 rounded-xl shadow">
-        Entrar
-      </button>
-    </form>
-
-    <div class="text-center mt-4">
-      {% if current_user.is_authenticated %}
-        <a href="{{ url_for('logout') }}" class="text-sm text-gray-500 hover:underline">Cerrar sesión</a>
-      {% else %}
-        <span class="text-sm text-gray-400">No has iniciado sesión</span>
       {% endif %}
+
+      <form method="POST" action="{{ url_for('login') }}" class="space-y-4" aria-label="Formulario de acceso">
+        <div>
+          <label class="block text-sm text-gray-700 mb-1" for="username">Usuario</label>
+          <input id="username" name="username" type="text" required autocomplete="username"
+                 class="input" placeholder="tu.usuario" />
+        </div>
+
+        <div>
+          <label class="block text-sm text-gray-700 mb-1" for="password">Contraseña</label>
+          <div class="flex gap-2">
+            <input id="password" name="password" type="password" required autocomplete="current-password"
+                   class="input flex-1" placeholder="••••••••" />
+            <button type="button" class="btn btn-ghost" id="togglePwd" aria-label="Mostrar u ocultar contraseña">
+              <i data-lucide="eye" class="w-5 h-5"></i>
+            </button>
+          </div>
+          <div id="capsHint" class="text-xs text-amber-700 bg-amber-50 border border-amber-100 rounded-lg px-3 py-2 mt-2 hidden">
+            Bloq Mayús activado
+          </div>
+        </div>
+
+        <button type="submit" class="btn btn-primary w-full">
+          <i data-lucide="log-in" class="w-5 h-5"></i> Entrar
+        </button>
+      </form>
+
+      <div class="soft-divider my-5"></div>
+
+      <div class="text-center text-sm text-gray-500">
+        ¿Problemas para entrar? Revisa tu usuario/contraseña con el administrador.
+      </div>
     </div>
-  </div>
+  </main>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      if (window.lucide) lucide.createIcons();
+      const u = document.getElementById('username'); if (u) u.focus();
+
+      // Mostrar/ocultar contraseña
+      const pwd = document.getElementById('password');
+      const btn = document.getElementById('togglePwd');
+      if (btn && pwd) {
+        btn.addEventListener('click', () => {
+          const show = pwd.type === 'password';
+          pwd.type = show ? 'text' : 'password';
+          btn.innerHTML = show ? '<i data-lucide="eye-off" class="w-5 h-5"></i>' : '<i data-lucide="eye" class="w-5 h-5"></i>';
+          if (window.lucide) lucide.createIcons();
+          pwd.focus();
+        });
+      }
+
+      // Indicador de Bloq Mayús
+      const caps = document.getElementById('capsHint');
+      if (pwd && caps) {
+        pwd.addEventListener('keydown', (e) => {
+          if ('getModifierState' in e) {
+            const on = e.getModifierState('CapsLock');
+            caps.classList.toggle('hidden', !on);
+          }
+        });
+        pwd.addEventListener('blur', () => caps.classList.add('hidden'));
+      }
+    });
+  </script>
 </body>
 </html>
