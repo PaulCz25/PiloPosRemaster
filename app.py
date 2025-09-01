@@ -4,6 +4,12 @@ import os
 from datetime import datetime
 from zoneinfo import ZoneInfo  # ← zona horaria real
 
+# ===== Seguridad y Auth (añadido) =====
+from dotenv import load_dotenv; load_dotenv()
+from flask_login import LoginManager, UserMixin, login_user, logout_user, login_required, current_user
+from werkzeug.security import check_password_hash, generate_password_hash
+# =====================================
+
 # Carpeta escribible en Render (no usar /var/data en Free/Starter)
 DATA_DIR = os.environ.get("DATA_DIR", "/tmp/pilotopos")
 STATIC_DIR = os.path.join(DATA_DIR, "static")
@@ -26,10 +32,40 @@ from db import get_db, init_db
 
 # ================== APP ==================
 app = Flask(__name__)
-app.secret_key = os.getenv('SECRET_KEY', 'dev-key')
+# Endurece sesión: requiere SECRET_KEY real (ya la verificaste)
+app.secret_key = os.environ["SECRET_KEY"]
+app.config.update(
+    SESSION_COOKIE_HTTPONLY=True,
+    SESSION_COOKIE_SAMESITE="Strict",
+    SESSION_COOKIE_SECURE=bool(int(os.getenv("SESSION_COOKIE_SECURE", "0"))),  # 0 en dev, 1 en prod
+)
+
+# ---- Login manager (añadido) ----
+login_manager = LoginManager(app)
+login_manager.login_view = "login"
+
+class User(UserMixin):
+    def __init__(self, id, username):
+        self.id = id
+        self.username = username
+
+@login_manager.user_loader
+def load_user(uid):
+    try:
+        with get_db() as conn:
+            r = conn.execute("SELECT id, username FROM usuarios WHERE id=? AND activo=TRUE", (uid,)).fetchone()
+            if r:
+                return User(r["id"], r["username"])
+    except Exception:
+        pass
+    return None
+# ---------------------------------
 
 # ---- Socket.IO ----
-socketio = SocketIO(app, cors_allowed_origins="*")
+allowed_origins = os.getenv("ALLOWED_ORIGINS", "*")
+if allowed_origins and allowed_origins != "*":
+    allowed_origins = [o.strip() for o in allowed_origins.split(",") if o.strip()]
+socketio = SocketIO(app, cors_allowed_origins=allowed_origins or "*")
 _last_state = None
 
 @socketio.on("join")
@@ -105,6 +141,15 @@ def ensure_tenant_schema():
       precio_unitario numeric(12,2) not null
     );
     create index if not exists idx_venta_items_venta on venta_items(venta_id);
+
+    -- ===== Usuarios mínimos para autenticación (añadido) =====
+    create table if not exists usuarios(
+      id            bigserial primary key,
+      username      text unique not null,
+      hash          text not null,
+      activo        boolean default true,
+      ultimo_acceso timestamptz
+    );
     '''
     with psycopg.connect(DATABASE_URL) as conn:
         with conn.cursor() as cur:
@@ -113,6 +158,30 @@ def ensure_tenant_schema():
 
 # Ejecutar una vez al arrancar el proceso (Flask 3: llamada directa)
 ensure_tenant_schema()
+
+def bootstrap_admin_user_if_needed():
+    """
+    Si no hay usuarios, crea uno inicial usando variables de entorno:
+    ADMIN_USER y ADMIN_PASSWORD (en texto plano) o ADMIN_PASSWORD_HASH.
+    """
+    admin_user = os.getenv("ADMIN_USER", "admin").strip()
+    admin_pwd = os.getenv("ADMIN_PASSWORD")
+    admin_hash = os.getenv("ADMIN_PASSWORD_HASH")
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT COUNT(*) AS c FROM usuarios").fetchone()
+            if row and int(row["c"] or 0) == 0:
+                if not admin_hash and not admin_pwd:
+                    print("bootstrap_admin: no hay usuarios y falta ADMIN_PASSWORD o ADMIN_PASSWORD_HASH; omitiendo creación.")
+                    return
+                if not admin_hash and admin_pwd:
+                    admin_hash = generate_password_hash(admin_pwd, method="pbkdf2:sha256", salt_length=16)
+                conn.execute("INSERT INTO usuarios(username, hash, activo) VALUES (?, ?, TRUE)", (admin_user, admin_hash))
+                print(f"bootstrap_admin: usuario inicial creado -> {admin_user}")
+    except Exception as e:
+        print("bootstrap_admin warning:", e)
+
+bootstrap_admin_user_if_needed()
 
 @app.before_request
 def set_fixed_tenant():
@@ -194,14 +263,17 @@ def index():
 
 @app.route('/venta')
 def venta():
+    # Requiere login excepto en modo display (para el visor del cliente)
+    display_mode = (request.args.get('display') == '1')
+    if not display_mode and not current_user.is_authenticated:
+        return redirect(url_for('login'))
+
     if 'carrito' not in session:
         session['carrito'] = []
 
     carrito = session.get('carrito', [])
     total = sum(item.get('precio', 0) for item in carrito)
     total_redondeado = round(total + 0.5)
-
-    display_mode = (request.args.get('display') == '1')
 
     return render_template(
         'venta.html',
@@ -214,6 +286,9 @@ def venta():
 
 @app.route('/agregar-producto', methods=['POST'])
 def agregar_producto():
+    if not current_user.is_authenticated:
+        return redirect(url_for('login'))
+
     codigo = (request.form.get('codigo') or '').strip()
 
     with get_db() as conn:
@@ -233,6 +308,7 @@ def agregar_producto():
 
 # ====== NUEVO: Agregar productos manuales al carrito ======
 @app.post('/carrito/agregar_manual')
+@login_required
 def carrito_agregar_manual():
     data = request.get_json(silent=True) or {}
     nombre = (data.get('nombre') or '').strip()
@@ -252,6 +328,7 @@ def carrito_agregar_manual():
     return jsonify({'ok': True, 'total': round(nuevo_total, 2), 'count': len(carrito)})
 
 @app.route('/redondear', methods=['POST'])
+@login_required
 def redondear():
     aceptado = request.form.get('aceptado')
     carrito = session.get('carrito', [])
@@ -346,11 +423,13 @@ def redondear():
     return redirect(url_for('venta'))
 
 @app.route('/almacen')
+@login_required
 def almacen():
     codigo = request.args.get('codigo', '')
     return render_template('almacen.html', codigo=codigo)
 
 @app.route('/guardar_producto', methods=['POST'])
+@login_required
 def guardar_producto():
     data = request.get_json() or {}
     codigo = data.get('codigo')
@@ -377,6 +456,7 @@ def guardar_producto():
 
 # ===================== BORRADO FORZADO =====================
 @app.route('/eliminar_producto', methods=['POST'])
+@login_required
 def eliminar_producto():
     data = request.get_json() or {}
     codigo = str(data.get('codigo') or '').strip()
@@ -477,6 +557,7 @@ def api_historial():
     return jsonify(items_salida)
 
 @app.route('/centavos')
+@login_required
 def centavos():
     centavos_list = []
     total_centavos = 0.0
@@ -509,6 +590,7 @@ def centavos():
     return render_template('centavos.html', centavos=centavos_list, total_centavos=round(total_centavos, 2))
 
 @app.route('/carrito/eliminar', methods=['POST'])
+@login_required
 def carrito_eliminar():
     data = request.get_json(silent=True) or {}
     try:
@@ -526,37 +608,63 @@ def carrito_eliminar():
     return jsonify({'ok': False, 'error': 'index out of range'}), 400
 
 @app.route('/historial')
+@login_required
 def historial():
     return render_template('historial.html')
 
 @app.route('/usuarios')
+@login_required
 def usuarios():
     return render_template('usuarios.html')
 
-@app.route('/login')
+# ====== LOGIN/LOGOUT (modificado) ======
+@app.route('/login', methods=['GET', 'POST'])
 def login():
-    return render_template('login.html')
+    if request.method == 'GET':
+        return render_template('login.html')
+    u = (request.form.get('username') or '').strip()
+    p = request.form.get('password') or ''
+    error = None
+    try:
+        with get_db() as conn:
+            row = conn.execute("SELECT id, hash FROM usuarios WHERE username=? AND activo=TRUE", (u,)).fetchone()
+            if not row or not check_password_hash(row["hash"], p):
+                error = "Usuario o contraseña inválidos"
+            else:
+                conn.execute("UPDATE usuarios SET ultimo_acceso=now() WHERE id=?", (row["id"],))
+                login_user(User(row["id"], u), remember=False)
+                return redirect(url_for('panel'))
+    except Exception as e:
+        error = f"Error de autenticación: {e}"
+    return render_template('login.html', error=error)
 
 @app.route('/logout')
+@login_required
 def logout():
+    logout_user()
     session.clear()
     return redirect(url_for('login'))
+# ======================================
 
 @app.route('/proveedores')
+@login_required
 def proveedores_view():
     return render_template('proveedores.html')
 
 @app.route('/api/proveedores')
+@login_required
 def api_proveedores():
     return jsonify(proveedores_listar())
 
 @app.route('/guardar_proveedor', methods=['POST'])
+@login_required
 def guardar_proveedor():
     data = request.get_json() or {}
     pid = proveedores_guardar(data)
     return jsonify({'success': True, 'id': pid})
 
 @app.route('/eliminar_proveedor', methods=['POST'])
+@login_required
 def eliminar_proveedor():
     data = request.get_json() or {}
     pid = str(data.get('id', ''))
@@ -631,10 +739,12 @@ def ticket(vid):
 
 # ===================== PANEL DE DATOS (ADMIN) =====================
 @app.route('/panel')
+@login_required
 def panel():
     return render_template('admin_datos.html')
 
 @app.get('/api/ventas')
+@login_required
 def api_ventas():
     """
     Lista ventas con filtros opcionales:
@@ -708,6 +818,7 @@ def api_ventas():
     return jsonify(salida)
 
 @app.post('/ventas/update')
+@login_required
 def ventas_update():
     """
     Actualiza una venta:
@@ -768,6 +879,7 @@ def ventas_update():
     return jsonify({"ok": True})
 
 @app.post('/ventas/delete')
+@login_required
 def ventas_delete():
     """
     Elimina la venta completa (cabecera + items).
