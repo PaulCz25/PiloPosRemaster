@@ -311,6 +311,7 @@
 
     // ===== Render de filas =====
     function estadoDeCantidad(cantidad){
+      if (cantidad < 0) return { txt:'Stock negativo', cls:'chip chip-red' };
       if (cantidad === 0) return { txt:'Agotado', cls:'chip chip-red' };
       if (cantidad <= 5)  return { txt:'Por acabarse', cls:'chip chip-amber' };
       return { txt:'Stock suficiente', cls:'chip chip-green' };
@@ -323,6 +324,7 @@
       const nombreSeguro  = escapeHTML(prod.nombre || '');
       const seccionSeguro = escapeHTML(prod.seccion || '');
       const codigoId      = safeId(codigo); // para IDs de inputs
+      const isNegativo    = cantidad < 0;
 
       const tr = document.createElement('tr');
       tr.innerHTML = `
@@ -337,7 +339,7 @@
           </div>
         </td>
         <td class="px-4 text-center">
-          <input type="number" value="${cantidad}" class="input input--cantidad w-full max-w-[5rem] sm:max-w-[5rem]" id="cantidad_${codigoId}" inputmode="numeric" aria-label="Cantidad">
+          <input type="number" value="${cantidad}" class="input input--cantidad w-full max-w-[5rem] sm:max-w-[5rem]" id="cantidad_${codigoId}" inputmode="numeric" aria-label="Cantidad" ${isNegativo ? 'style="color:#b00020;font-weight:700" title="Stock negativo: pendiente de transferencia"' : ''}>
         </td>
         <td class="px-4">
           <input type="text" value="${seccionSeguro}" class="input input--seccion w-full max-w-[9rem] sm:max-w-[9rem]" id="seccion_${codigoId}" placeholder="Sección" aria-label="Sección">
