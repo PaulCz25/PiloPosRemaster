@@ -84,11 +84,14 @@ def on_join(data):
 
 @socketio.on("update-display")
 def on_update_display(payload):
-    if not current_user.is_authenticated:
+    # Permitir acceso sin autenticación si se trata del "display" (pantalla del carrito)
+    if not current_user.is_authenticated and not isinstance(payload, dict):
         return
+    
     global _last_state
     _last_state = payload
     emit("state", payload, to="display")
+
 
 # --------------------- Inicializar DB de control ---------------------
 try:
@@ -825,7 +828,7 @@ def api_ventas():
 
     return jsonify(salida)
 
-@app.post('/ventas/update')
+app.post('/ventas/update')
 @login_required
 def ventas_update():
     data = request.get_json(silent=True) or {}
