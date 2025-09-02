@@ -254,6 +254,48 @@
     function fmt(n){ return Number(n).toFixed(2); }
     function parseMoney(str){ return Number(String(str || '0').replace(/[^\d.]/g, '')) || 0; }
 
+    // ====== AGRUPACIÓN VISUAL DE DUPLICADOS (x2, x3, …) ======
+    function baseName(txt){
+      // Quita sufijo " xN" al final si existe (ej. "Maruchan x3" -> "Maruchan")
+      return String(txt || '').replace(/\s+x\d+$/i,'').trim();
+    }
+    function aggregateDuplicates(){
+      const ul = document.getElementById('listaCarrito');
+      if (!ul) return;
+      const lis = Array.from(ul.querySelectorAll('li')).filter(li=>!li.classList.contains('empty-ring'));
+      if (lis.length === 0) return;
+
+      const groups = new Map(); // key => {count, items[], nameEl, priceEl}
+      lis.forEach(li=>{
+        li.classList.remove('hidden-dup');
+        li.style.display = ''; // por si acaso
+        const nameEl = li.querySelector('[data-rol="nombre"]');
+        const priceEl = li.querySelector('[data-rol="precio"]');
+        if (!nameEl || !priceEl) return;
+        const name = baseName(nameEl.textContent || '');
+        const priceTxt = priceEl.textContent || '';
+        const key = name + '|' + priceTxt;
+        if (!groups.has(key)) groups.set(key, {count:0, items:[], name, priceTxt});
+        const g = groups.get(key);
+        g.count += 1;
+        g.items.push(li);
+      });
+
+      groups.forEach(g=>{
+        // Dejar visible solo el último (el más reciente); ocultar anteriores
+        const last = g.items[g.items.length-1];
+        g.items.slice(0,-1).forEach(li=>{
+          li.classList.add('hidden-dup');
+          li.style.display = 'none';
+        });
+        // Actualizar nombre visible con xN si aplica
+        const nameEl = last.querySelector('[data-rol="nombre"]');
+        if (nameEl){
+          nameEl.textContent = g.count > 1 ? `${g.name} x${g.count}` : g.name;
+        }
+      });
+    }
+
     // Modo DISPLAY por query param
     const params = new URLSearchParams(location.search);
     const DISPLAY = params.get('display') === '1';
@@ -271,11 +313,17 @@
     // ---- Estado DOM -> JSON (sin redondeo) ----
     function collectState(){
       const items = [];
-      document.querySelectorAll('#listaCarrito li').forEach(li => {
-        const name = li.querySelector('[data-rol="nombre"]')?.textContent?.trim() || '';
+      // Solo tomar las filas visibles (la última de cada grupo)
+      document.querySelectorAll('#listaCarrito li:not(.hidden-dup)').forEach(li => {
+        const nameTxt = li.querySelector('[data-rol="nombre"]')?.textContent?.trim() || '';
         const priceTxt = li.querySelector('[data-rol="precio"]')?.textContent || '0';
         const price = parseMoney(priceTxt);
-        if (name) items.push({ nombre: name, precio: price });
+        if (!nameTxt) return;
+        // Detectar sufijo xN
+        const m = nameTxt.match(/\s+x(\d+)$/i);
+        const qty = m ? Math.max(1, parseInt(m[1],10)) : 1;
+        const name = baseName(nameTxt);
+        items.push({ nombre: name, precio: price, qty: qty });
       });
       const totalBrutoEl = document.getElementById('totalBruto');
       const total = parseMoney(totalBrutoEl ? totalBrutoEl.textContent : '0');
@@ -320,7 +368,8 @@
               <button type="button" class="p-2 rounded-lg hover:bg-red-50" title="Quitar del carrito">
                 <i data-lucide="trash-2" class="w-5 h-5 text-red-600"></i>
               </button>`;
-          li.querySelector('[data-rol="nombre"]').textContent = it.nombre || '';
+          const qty = Math.max(1, Number(it.qty||1));
+          li.querySelector('[data-rol="nombre"]').textContent = qty>1 ? `${it.nombre || ''} x${qty}` : (it.nombre || '');
           li.querySelector('[data-rol="precio"]').textContent = '$' + fmt(it.precio || 0);
           ul.appendChild(li);
         });
@@ -355,6 +404,9 @@
       if (mCambio) mCambio.textContent = '$' + fmt(s.cambio || 0);
 
       if (window.lucide) lucide.createIcons();
+
+      // <-- Agrupar duplicados tras pintar desde el estado
+      aggregateDuplicates();
     }
 
     function broadcast(){ if (!DISPLAY) socket.emit('update-display', collectState()); }
@@ -431,6 +483,9 @@
         document.getElementById('bloquePago').classList.add('hidden');
         document.getElementById('resultadoCambio').classList.add('hidden');
         document.getElementById('finalizarCompra').classList.add('hidden');
+
+        // <-- Reagrupar después de reindexar
+        aggregateDuplicates();
         broadcast();
       } catch(e){ console.error(e); }
     }
@@ -486,6 +541,9 @@
         document.getElementById('resultadoCambio').classList.add('hidden');
         document.getElementById('finalizarCompra').classList.add('hidden');
 
+        // <-- Agrupar tras agregar manual
+        aggregateDuplicates();
+
         cerrarManual();
         if (window.lucide) lucide.createIcons();
         broadcast();
@@ -500,6 +558,8 @@
       if (window.lucide) lucide.createIcons();
       const code = document.getElementById('codigo'); if (code) code.focus();
       bindCashPresets();
+      // <-- Agrupa duplicados al cargar (por si el servidor envió filas repetidas)
+      aggregateDuplicates();
       broadcast();
     });
   </script>
